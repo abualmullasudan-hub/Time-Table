@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 
 const List<String> kDayNames = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس'];
 const int kDayCount = 5;
@@ -38,7 +40,8 @@ class SlotTime {
 class SchoolClass {
   final String id;
   String name;
-  SchoolClass(this.id, this.name);
+  String level; // 'ابتدائي', 'متوسط', 'ثانوي'
+  SchoolClass(this.id, this.name, this.level);
 }
 
 class Teacher {
@@ -62,9 +65,7 @@ class Lesson {
     required this.teacherId,
   });
 
-  static String keyOf(int day, int lessonIndex, String classId) =>
-      '$day|$lessonIndex|$classId';
-
+  static String keyOf(int day, int lessonIndex, String classId) => '$day|$lessonIndex|$classId';
   String get key => keyOf(day, lessonIndex, classId);
 }
 
@@ -74,14 +75,17 @@ class ActivitySlot {
   String title;
 
   ActivitySlot({required this.day, required this.keyName, required this.title});
-
   static String keyOf(int day, String keyName) => '$day|$keyName';
   String get id => keyOf(day, keyName);
 }
 
 class AppStore extends ChangeNotifier {
-  AppStore._() { _seed(); }
+  AppStore._() { _loadData(); }
   static final AppStore instance = AppStore._();
+
+  // إعدادات المدرسة
+  String schoolName = 'مدرسة النور';
+  String academicYear = '1445 هـ - 2024 م';
 
   final List<SchoolClass> classes = [];
   final List<Teacher> teachers = [];
@@ -89,15 +93,65 @@ class AppStore extends ChangeNotifier {
   final Map<String, Lesson> lessons = {};
   final Map<String, ActivitySlot> activities = {};
 
+  void _loadData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final dataStr = prefs.getString('app_data');
+    
+    if (dataStr != null) {
+      final data = jsonDecode(dataStr);
+      schoolName = data['schoolName'] ?? 'مدرسة النور';
+      academicYear = data['academicYear'] ?? '1445 هـ - 2024 م';
+      
+      classes.clear();
+      for (var c in data['classes']) {
+        classes.add(SchoolClass(c['id'], c['name'], c['level']));
+      }
+      teachers.clear();
+      for (var t in data['teachers']) {
+        teachers.add(Teacher(t['id'], t['name']));
+      }
+      lessons.clear();
+      for (var l in data['lessons']) {
+        lessons[l['key']] = Lesson(
+          day: l['day'], lessonIndex: l['lessonIndex'], classId: l['classId'],
+          subject: l['subject'], teacherId: l['teacherId']
+        );
+      }
+    } else {
+      _seed(); // بيانات تجريبية لأول مرة فقط
+    }
+    _setupTimes();
+    _setupActivities();
+    notifyListeners();
+  }
+
+  void saveData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final data = {
+      'schoolName': schoolName,
+      'academicYear': academicYear,
+      'classes': classes.map((c) => {'id': c.id, 'name': c.name, 'level': c.level}).toList(),
+      'teachers': teachers.map((t) => {'id': t.id, 'name': t.name}).toList(),
+      'lessons': lessons.values.map((l) => {
+        'key': l.key, 'day': l.day, 'lessonIndex': l.lessonIndex,
+        'classId': l.classId, 'subject': l.subject, 'teacherId': l.teacherId
+      }).toList(),
+    };
+    await prefs.setString('app_data', jsonEncode(data));
+  }
+
   void _seed() {
-    const classNames = ['الصف الأول','الصف الثاني','الصف الثالث','الصف الرابع','الصف الخامس'];
-    for (var i = 0; i < classNames.length; i++) {
-      classes.add(SchoolClass('c${i + 1}', classNames[i]));
-    }
-    const teacherNames = ['أ. أحمد','أ. محمد','أ. خالد','أ. سعيد','أ. عمر','أ. يوسف','أ. إبراهيم'];
-    for (var i = 0; i < teacherNames.length; i++) {
-      teachers.add(Teacher('t${i + 1}', teacherNames[i]));
-    }
+    schoolName = 'مدرسة النور';
+    academicYear = '1445 هـ';
+    classes.add(SchoolClass('c1', 'أول أ', 'ابتدائي'));
+    classes.add(SchoolClass('c2', 'أول ب', 'ابتدائي'));
+    classes.add(SchoolClass('c3', 'ثاني أ', 'متوسط'));
+    teachers.add(Teacher('t1', 'أ. أحمد'));
+    teachers.add(Teacher('t2', 'أ. خالد'));
+  }
+
+  void _setupTimes() {
+    times.clear();
     var cursor = const TimeOfDay(hour: 7, minute: 15);
     for (var i = 0; i < kLessonCount; i++) {
       final start = cursor;
@@ -105,6 +159,10 @@ class AppStore extends ChangeNotifier {
       times.add(SlotTime(start, end));
       cursor = _add(end, 5);
     }
+  }
+
+  void _setupActivities() {
+    activities.clear();
     for (var d = 0; d < kDayCount; d++) {
       activities[ActivitySlot.keyOf(d, kAssemblyKey)] = ActivitySlot(day: d, keyName: kAssemblyKey, title: 'الطابور');
       activities[ActivitySlot.keyOf(d, kBreakfastKey)] = ActivitySlot(day: d, keyName: kBreakfastKey, title: 'الفطور');
@@ -117,19 +175,11 @@ class AppStore extends ChangeNotifier {
     return TimeOfDay(hour: (total ~/ 60) % 24, minute: total % 60);
   }
 
-  String className(String id) {
-    for (final c in classes) { if (c.id == id) return c.name; }
-    return '—';
-  }
-
-  String teacherName(String id) {
-    for (final t in teachers) { if (t.id == id) return t.name; }
-    return '—';
-  }
-
+  String className(String id) => classes.firstWhere((c) => c.id == id, orElse: () => SchoolClass('', '—', '')).name;
+  String teacherName(String id) => teachers.firstWhere((t) => t.id == id, orElse: () => Teacher('', '—')).name;
   ActivitySlot activityAt(int day, String keyName) => activities[ActivitySlot.keyOf(day, keyName)]!;
   Lesson? lessonAt(int day, int lessonIndex, String classId) => lessons[Lesson.keyOf(day, lessonIndex, classId)];
-
+  
   Lesson? lessonForTeacher(int day, int lessonIndex, String teacherId) {
     for (final l in lessons.values) {
       if (l.day == day && l.lessonIndex == lessonIndex && l.teacherId == teacherId) return l;
@@ -137,16 +187,30 @@ class AppStore extends ChangeNotifier {
     return null;
   }
 
-  void setLesson(Lesson l) { lessons[l.key] = l; notifyListeners(); }
-  void removeLesson(int day, int lessonIndex, String classId) { lessons.remove(Lesson.keyOf(day, lessonIndex, classId)); notifyListeners(); }
-  void setActivity(int day, String keyName, String title) { activities[ActivitySlot.keyOf(day, keyName)]!.title = title; notifyListeners(); }
+  void setLesson(Lesson l) { lessons[l.key] = l; saveData(); notifyListeners(); }
+  void setActivity(int day, String keyName, String title) { activities[ActivitySlot.keyOf(day, keyName)]!.title = title; saveData(); notifyListeners(); }
   void setSlotTime(int index, {TimeOfDay? start, TimeOfDay? end}) {
     if (start != null) times[index].start = start;
     if (end != null) times[index].end = end;
-    notifyListeners();
+    saveData(); notifyListeners();
   }
-  void renameClass(String id, String name) { for (final c in classes) { if (c.id == id) c.name = name; } notifyListeners(); }
-  void renameTeacher(String id, String name) { for (final t in teachers) { if (t.id == id) t.name = name; } notifyListeners(); }
-  void addTeacher(String name) { teachers.add(Teacher('t${DateTime.now().microsecondsSinceEpoch}', name)); notifyListeners(); }
-  void removeTeacher(String id) { teachers.removeWhere((t) => t.id == id); notifyListeners(); }
+  
+  // إدارة الفصول
+  void addClass(String name, String level) { 
+    classes.add(SchoolClass(DateTime.now().millisecondsSinceEpoch.toString(), name, level)); 
+    saveData(); notifyListeners(); 
+  }
+  void removeClass(String id) { 
+    classes.removeWhere((c) => c.id == id); 
+    saveData(); notifyListeners(); 
+  }
+  void updateClass(String id, String name, String level) {
+    final c = classes.firstWhere((x) => x.id == id);
+    c.name = name; c.level = level; saveData(); notifyListeners();
+  }
+  
+  // إدارة المعلمين والإعدادات
+  void addTeacher(String name) { teachers.add(Teacher(DateTime.now().millisecondsSinceEpoch.toString(), name)); saveData(); notifyListeners(); }
+  void removeTeacher(String id) { teachers.removeWhere((t) => t.id == id); saveData(); notifyListeners(); }
+  void setSchoolInfo(String name, String year) { schoolName = name; academicYear = year; saveData(); notifyListeners(); }
 }
