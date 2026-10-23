@@ -40,7 +40,9 @@ class SlotTime {
 class Subject {
   final String id;
   String name;
-  Subject(this.id, this.name);
+  int colorValue; 
+  Subject(this.id, this.name, {this.colorValue = 0xFF3949AB});
+  Color get color => Color(colorValue);
 }
 
 class SchoolClass {
@@ -100,22 +102,19 @@ class AppStore extends ChangeNotifier {
   AppStore._() { _loadData(); }
   static final AppStore instance = AppStore._();
 
-  // إعدادات المدرسة
   String schoolName = 'مدرسة النور';
   String academicYear = '1445 هـ - 2024 م';
 
-  // الثيمات والألوان
-  Color primaryColor = const Color(0xFF1565C0);
-  Color tableHeaderColor = const Color(0xFFD6E4FF);
-  Color tableSubHeaderColor = const Color(0xFFBBDEFB);
-
-  // إعدادات الخطوط
-  double fontScale = 1.0; // 0.8 أصغر، 1.2 أكبر
-  FontWeight fontWeight = FontWeight.normal;
+  // إعدادات المظهر (الجديدة)
+  bool isDarkMode = false;
+  Color primaryColor = const Color(0xFF1E1B4B);
+  String fontFamily = 'Tajawal';
+  double uiRadius = 24.0;
+  double fontScale = 1.0;
 
   // إعدادات التنبيهات
-  int alertDurationSeconds = 3; // مدة بقاء التنبيه المرئي
-  bool smartNotificationsEnabled = true; // تنبيهات الحصص المتبقية أثناء الأنشطة
+  int alertDurationSeconds = 3;
+  bool smartNotificationsEnabled = true;
 
   final List<Subject> subjects = [];
   final List<SchoolClass> classes = [];
@@ -126,25 +125,28 @@ class AppStore extends ChangeNotifier {
 
   void _loadData() async {
     final prefs = await SharedPreferences.getInstance();
-    final dataStr = prefs.getString('app_data_v3');
+    final dataStr = prefs.getString('app_data_v5');
     
     if (dataStr != null) {
       try {
         final data = jsonDecode(dataStr);
-        schoolName = data['schoolName'] ?? 'مدرسة النور';
-        academicYear = data['academicYear'] ?? '1445 هـ - 2024 م';
-        primaryColor = Color(data['primaryColor'] ?? 0xFF1565C0);
-        tableHeaderColor = Color(data['tableHeaderColor'] ?? 0xFFD6E4FF);
-        tableSubHeaderColor = Color(data['tableSubHeaderColor'] ?? 0xFFBBDEFB);
+        schoolName = data['schoolName'] ?? schoolName;
+        academicYear = data['academicYear'] ?? academicYear;
         
+        // تحميل إعدادات المظهر
+        isDarkMode = data['isDarkMode'] ?? false;
+        primaryColor = Color(data['primaryColor'] ?? 0xFF1E1B4B);
+        fontFamily = data['fontFamily'] ?? 'Tajawal';
+        uiRadius = data['uiRadius'] ?? 24.0;
         fontScale = data['fontScale'] ?? 1.0;
+        
         alertDurationSeconds = data['alertDurationSeconds'] ?? 3;
         smartNotificationsEnabled = data['smartNotificationsEnabled'] ?? true;
         
         subjects.clear();
         if (data['subjects'] != null) {
           for (var s in data['subjects']) {
-            subjects.add(Subject(s['id'], s['name']));
+            subjects.add(Subject(s['id'], s['name'], colorValue: s['colorValue'] ?? 0xFF3949AB));
           }
         }
         
@@ -187,9 +189,12 @@ class AppStore extends ChangeNotifier {
     
     if (subjects.isEmpty) {
       subjects.addAll([
-        Subject('s1', 'رياضيات'), Subject('s2', 'لغة عربية'), 
-        Subject('s3', 'علوم'), Subject('s4', 'لغة إنجليزية'),
-        Subject('s5', 'تربية إسلامية')
+        Subject('s1', 'رياضيات', colorValue: 0xFFE53935),
+        Subject('s2', 'لغة عربية', colorValue: 0xFF43A047),
+        Subject('s3', 'علوم', colorValue: 0xFF1E88E5),
+        Subject('s4', 'لغة إنجليزية', colorValue: 0xFF8E24AA),
+        Subject('s5', 'تربية إسلامية', colorValue: 0xFF00897B),
+        Subject('s6', 'اجتماعيات', colorValue: 0xFFF4511E),
       ]);
     }
     
@@ -203,13 +208,14 @@ class AppStore extends ChangeNotifier {
     final data = {
       'schoolName': schoolName,
       'academicYear': academicYear,
+      'isDarkMode': isDarkMode,
       'primaryColor': primaryColor.value,
-      'tableHeaderColor': tableHeaderColor.value,
-      'tableSubHeaderColor': tableSubHeaderColor.value,
+      'fontFamily': fontFamily,
+      'uiRadius': uiRadius,
       'fontScale': fontScale,
       'alertDurationSeconds': alertDurationSeconds,
       'smartNotificationsEnabled': smartNotificationsEnabled,
-      'subjects': subjects.map((s) => {'id': s.id, 'name': s.name}).toList(),
+      'subjects': subjects.map((s) => {'id': s.id, 'name': s.name, 'colorValue': s.colorValue}).toList(),
       'classes': classes.map((c) => {'id': c.id, 'name': c.name, 'level': c.level}).toList(),
       'teachers': teachers.map((t) => {'id': t.id, 'name': t.name, 'subjects': t.subjects}).toList(),
       'lessons': lessons.values.map((l) => {
@@ -222,12 +228,10 @@ class AppStore extends ChangeNotifier {
         'endH': a.end.hour, 'endM': a.end.minute
       }).toList(),
     };
-    await prefs.setString('app_data_v3', jsonEncode(data));
+    await prefs.setString('app_data_v5', jsonEncode(data));
   }
 
   void _seed() {
-    schoolName = 'مدرسة النور';
-    academicYear = '1445 هـ';
     classes.add(SchoolClass('c1', 'أول أ', 'ابتدائي'));
     classes.add(SchoolClass('c2', 'أول ب', 'ابتدائي'));
     classes.add(SchoolClass('c3', 'ثاني أ', 'متوسط'));
@@ -249,18 +253,9 @@ class AppStore extends ChangeNotifier {
   void _setupActivities() {
     if (activities.isNotEmpty) return;
     for (var d = 0; d < kDayCount; d++) {
-      activities[ActivitySlot.keyOf(d, kAssemblyKey)] = ActivitySlot(
-        day: d, keyName: kAssemblyKey, title: 'الطابور',
-        start: const TimeOfDay(hour: 7, minute: 0), end: const TimeOfDay(hour: 7, minute: 15)
-      );
-      activities[ActivitySlot.keyOf(d, kBreakfastKey)] = ActivitySlot(
-        day: d, keyName: kBreakfastKey, title: 'الفطور',
-        start: const TimeOfDay(hour: 9, minute: 30), end: const TimeOfDay(hour: 9, minute: 50)
-      );
-      activities[ActivitySlot.keyOf(d, kPrayerKey)] = ActivitySlot(
-        day: d, keyName: kPrayerKey, title: 'الصلاة',
-        start: const TimeOfDay(hour: 12, minute: 0), end: const TimeOfDay(hour: 12, minute: 15)
-      );
+      activities[ActivitySlot.keyOf(d, kAssemblyKey)] = ActivitySlot(day: d, keyName: kAssemblyKey, title: 'الطابور', start: const TimeOfDay(hour: 7, minute: 0), end: const TimeOfDay(hour: 7, minute: 15));
+      activities[ActivitySlot.keyOf(d, kBreakfastKey)] = ActivitySlot(day: d, keyName: kBreakfastKey, title: 'الفطور', start: const TimeOfDay(hour: 9, minute: 30), end: const TimeOfDay(hour: 9, minute: 50));
+      activities[ActivitySlot.keyOf(d, kPrayerKey)] = ActivitySlot(day: d, keyName: kPrayerKey, title: 'الصلاة', start: const TimeOfDay(hour: 12, minute: 0), end: const TimeOfDay(hour: 12, minute: 15));
     }
   }
 
@@ -282,15 +277,10 @@ class AppStore extends ChangeNotifier {
   }
 
   void setLesson(Lesson l) { lessons[l.key] = l; saveData(); notifyListeners(); }
-  void removeLesson(int day, int lessonIndex, String classId) { 
-    lessons.remove(Lesson.keyOf(day, lessonIndex, classId)); 
-    saveData(); notifyListeners(); 
-  }
+  void removeLesson(int day, int lessonIndex, String classId) { lessons.remove(Lesson.keyOf(day, lessonIndex, classId)); saveData(); notifyListeners(); }
 
   void setActivity(int day, String keyName, String title, TimeOfDay start, TimeOfDay end) { 
-    activities[ActivitySlot.keyOf(day, keyName)]!.title = title; 
-    activities[ActivitySlot.keyOf(day, keyName)]!.start = start; 
-    activities[ActivitySlot.keyOf(day, keyName)]!.end = end; 
+    activities[ActivitySlot.keyOf(day, keyName)]!..title = title..start = start..end = end; 
     saveData(); notifyListeners(); 
   }
 
@@ -300,64 +290,26 @@ class AppStore extends ChangeNotifier {
     saveData(); notifyListeners();
   }
   
-  void addClass(String name, String level) { 
-    classes.add(SchoolClass(DateTime.now().millisecondsSinceEpoch.toString(), name, level)); 
-    saveData(); notifyListeners(); 
-  }
-  void removeClass(String id) { 
-    classes.removeWhere((c) => c.id == id); 
-    saveData(); notifyListeners(); 
-  }
-  void updateClass(String id, String name, String level) {
-    final c = classes.firstWhere((x) => x.id == id);
-    c.name = name; c.level = level; saveData(); notifyListeners();
-  }
+  void addClass(String name, String level) { classes.add(SchoolClass(DateTime.now().millisecondsSinceEpoch.toString(), name, level)); saveData(); notifyListeners(); }
+  void removeClass(String id) { classes.removeWhere((c) => c.id == id); saveData(); notifyListeners(); }
+  void updateClass(String id, String name, String level) { final c = classes.firstWhere((x) => x.id == id); c.name = name; c.level = level; saveData(); notifyListeners(); }
   
-  void addTeacher(String name, List<String> teacherSubjects) { 
-    teachers.add(Teacher(DateTime.now().millisecondsSinceEpoch.toString(), name, subjects: teacherSubjects)); 
-    saveData(); notifyListeners(); 
-  }
+  void addTeacher(String name, List<String> teacherSubjects) { teachers.add(Teacher(DateTime.now().millisecondsSinceEpoch.toString(), name, subjects: teacherSubjects)); saveData(); notifyListeners(); }
   void removeTeacher(String id) { teachers.removeWhere((t) => t.id == id); saveData(); notifyListeners(); }
   
-  // إدارة المواد
-  void addSubject(String name) {
-    subjects.add(Subject(DateTime.now().millisecondsSinceEpoch.toString(), name));
-    saveData(); notifyListeners();
-  }
-  void removeSubject(String id) {
-    subjects.removeWhere((s) => s.id == id);
-    saveData(); notifyListeners();
-  }
-  void updateSubject(String id, String name) {
-    final s = subjects.firstWhere((x) => x.id == id);
-    s.name = name; saveData(); notifyListeners();
-  }
+  void addSubject(String name, int colorValue) { subjects.add(Subject(DateTime.now().millisecondsSinceEpoch.toString(), name, colorValue: colorValue)); saveData(); notifyListeners(); }
+  void removeSubject(String id) { subjects.removeWhere((s) => s.id == id); saveData(); notifyListeners(); }
+  void updateSubject(String id, String name, int colorValue) { final s = subjects.firstWhere((x) => x.id == id); s.name = name; s.colorValue = colorValue; saveData(); notifyListeners(); }
 
   void setSchoolInfo(String name, String year) { schoolName = name; academicYear = year; saveData(); notifyListeners(); }
   
-  void setThemeColors(Color primary, Color header, Color subHeader) {
-    primaryColor = primary;
-    tableHeaderColor = header;
-    tableSubHeaderColor = subHeader;
-    saveData();
-    notifyListeners();
-  }
-
-  void setFontSettings(double scale, FontWeight weight) {
-    fontScale = scale;
-    fontWeight = weight;
-    saveData();
-    notifyListeners();
-  }
-
-  void setAlertSettings(int durationSeconds, bool smartEnabled) {
-    alertDurationSeconds = durationSeconds;
-    smartNotificationsEnabled = smartEnabled;
-    saveData();
-    notifyListeners();
-  }
-
-  List<SchoolClass> getClassesByLevel(String level) {
-    return classes.where((c) => c.level == level).toList();
-  }
+  // دوال حفظ التصميم الجديدة
+  void setThemeMode(bool isDark) { isDarkMode = isDark; saveData(); notifyListeners(); }
+  void setPrimaryColor(Color color) { primaryColor = color; saveData(); notifyListeners(); }
+  void setFontFamily(String font) { fontFamily = font; saveData(); notifyListeners(); }
+  void setUiRadius(double radius) { uiRadius = radius; saveData(); notifyListeners(); }
+  void setFontScale(double scale) { fontScale = scale; saveData(); notifyListeners(); }
+  
+  void setAlertSettings(int durationSeconds, bool smartEnabled) { alertDurationSeconds = durationSeconds; smartNotificationsEnabled = smartEnabled; saveData(); notifyListeners(); }
+  List<SchoolClass> getClassesByLevel(String level) => classes.where((c) => c.level == level).toList();
 }
