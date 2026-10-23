@@ -47,7 +47,8 @@ class SchoolClass {
 class Teacher {
   final String id;
   String name;
-  Teacher(this.id, this.name);
+  List<String> subjects; // تم إضافة المواد
+  Teacher(this.id, this.name, {this.subjects = const []});
 }
 
 class Lesson {
@@ -87,6 +88,17 @@ class AppStore extends ChangeNotifier {
   String schoolName = 'مدرسة النور';
   String academicYear = '1445 هـ - 2024 م';
 
+  // الثيمات والألوان
+  Color primaryColor = const Color(0xFF1565C0);
+  Color tableHeaderColor = const Color(0xFFD6E4FF);
+  Color tableSubHeaderColor = const Color(0xFFBBDEFB);
+
+  // قائمة المواد الافتراضية
+  final List<String> availableSubjects = [
+    'رياضيات', 'لغة عربية', 'علوم', 'لغة إنجليزية', 'تربية إسلامية', 
+    'حاسب آلي', 'اجتماعيات', 'تربية فنية', 'تربية بدنية', 'مهارات حياتية'
+  ];
+
   final List<SchoolClass> classes = [];
   final List<Teacher> teachers = [];
   final List<SlotTime> times = [];
@@ -98,27 +110,40 @@ class AppStore extends ChangeNotifier {
     final dataStr = prefs.getString('app_data');
     
     if (dataStr != null) {
-      final data = jsonDecode(dataStr);
-      schoolName = data['schoolName'] ?? 'مدرسة النور';
-      academicYear = data['academicYear'] ?? '1445 هـ - 2024 م';
-      
-      classes.clear();
-      for (var c in data['classes']) {
-        classes.add(SchoolClass(c['id'], c['name'], c['level']));
-      }
-      teachers.clear();
-      for (var t in data['teachers']) {
-        teachers.add(Teacher(t['id'], t['name']));
-      }
-      lessons.clear();
-      for (var l in data['lessons']) {
-        lessons[l['key']] = Lesson(
-          day: l['day'], lessonIndex: l['lessonIndex'], classId: l['classId'],
-          subject: l['subject'], teacherId: l['teacherId']
-        );
+      try {
+        final data = jsonDecode(dataStr);
+        schoolName = data['schoolName'] ?? 'مدرسة النور';
+        academicYear = data['academicYear'] ?? '1445 هـ - 2024 م';
+        primaryColor = Color(data['primaryColor'] ?? 0xFF1565C0);
+        tableHeaderColor = Color(data['tableHeaderColor'] ?? 0xFFD6E4FF);
+        tableSubHeaderColor = Color(data['tableSubHeaderColor'] ?? 0xFFBBDEFB);
+        
+        classes.clear();
+        for (var c in data['classes']) {
+          classes.add(SchoolClass(c['id'], c['name'], c['level']));
+        }
+        
+        teachers.clear();
+        for (var t in data['teachers']) {
+          List<String> subs = [];
+          if (t['subjects'] != null) {
+            subs = List<String>.from(t['subjects']);
+          }
+          teachers.add(Teacher(t['id'], t['name'], subjects: subs));
+        }
+        
+        lessons.clear();
+        for (var l in data['lessons']) {
+          lessons[l['key']] = Lesson(
+            day: l['day'], lessonIndex: l['lessonIndex'], classId: l['classId'],
+            subject: l['subject'], teacherId: l['teacherId']
+          );
+        }
+      } catch (e) {
+        _seed(); 
       }
     } else {
-      _seed(); // بيانات تجريبية لأول مرة فقط
+      _seed(); 
     }
     _setupTimes();
     _setupActivities();
@@ -130,8 +155,11 @@ class AppStore extends ChangeNotifier {
     final data = {
       'schoolName': schoolName,
       'academicYear': academicYear,
+      'primaryColor': primaryColor.value,
+      'tableHeaderColor': tableHeaderColor.value,
+      'tableSubHeaderColor': tableSubHeaderColor.value,
       'classes': classes.map((c) => {'id': c.id, 'name': c.name, 'level': c.level}).toList(),
-      'teachers': teachers.map((t) => {'id': t.id, 'name': t.name}).toList(),
+      'teachers': teachers.map((t) => {'id': t.id, 'name': t.name, 'subjects': t.subjects}).toList(),
       'lessons': lessons.values.map((l) => {
         'key': l.key, 'day': l.day, 'lessonIndex': l.lessonIndex,
         'classId': l.classId, 'subject': l.subject, 'teacherId': l.teacherId
@@ -146,8 +174,8 @@ class AppStore extends ChangeNotifier {
     classes.add(SchoolClass('c1', 'أول أ', 'ابتدائي'));
     classes.add(SchoolClass('c2', 'أول ب', 'ابتدائي'));
     classes.add(SchoolClass('c3', 'ثاني أ', 'متوسط'));
-    teachers.add(Teacher('t1', 'أ. أحمد'));
-    teachers.add(Teacher('t2', 'أ. خالد'));
+    teachers.add(Teacher('t1', 'أ. أحمد', subjects: ['رياضيات', 'علوم']));
+    teachers.add(Teacher('t2', 'أ. خالد', subjects: ['لغة عربية']));
   }
 
   void _setupTimes() {
@@ -188,12 +216,9 @@ class AppStore extends ChangeNotifier {
   }
 
   void setLesson(Lesson l) { lessons[l.key] = l; saveData(); notifyListeners(); }
-  
-  // تم إضافة دالة الحذف هنا
   void removeLesson(int day, int lessonIndex, String classId) { 
     lessons.remove(Lesson.keyOf(day, lessonIndex, classId)); 
-    saveData(); 
-    notifyListeners(); 
+    saveData(); notifyListeners(); 
   }
 
   void setActivity(int day, String keyName, String title) { activities[ActivitySlot.keyOf(day, keyName)]!.title = title; saveData(); notifyListeners(); }
@@ -203,7 +228,6 @@ class AppStore extends ChangeNotifier {
     saveData(); notifyListeners();
   }
   
-  // إدارة الفصول
   void addClass(String name, String level) { 
     classes.add(SchoolClass(DateTime.now().millisecondsSinceEpoch.toString(), name, level)); 
     saveData(); notifyListeners(); 
@@ -217,8 +241,25 @@ class AppStore extends ChangeNotifier {
     c.name = name; c.level = level; saveData(); notifyListeners();
   }
   
-  // إدارة المعلمين والإعدادات
-  void addTeacher(String name) { teachers.add(Teacher(DateTime.now().millisecondsSinceEpoch.toString(), name)); saveData(); notifyListeners(); }
+  void addTeacher(String name, List<String> subjects) { 
+    teachers.add(Teacher(DateTime.now().millisecondsSinceEpoch.toString(), name, subjects: subjects)); 
+    saveData(); notifyListeners(); 
+  }
   void removeTeacher(String id) { teachers.removeWhere((t) => t.id == id); saveData(); notifyListeners(); }
+  
   void setSchoolInfo(String name, String year) { schoolName = name; academicYear = year; saveData(); notifyListeners(); }
+  
+  // تحديث الألوان والثيمات
+  void setThemeColors(Color primary, Color header, Color subHeader) {
+    primaryColor = primary;
+    tableHeaderColor = header;
+    tableSubHeaderColor = subHeader;
+    saveData();
+    notifyListeners();
+  }
+
+  // جلب فصول مرحلة معينة
+  List<SchoolClass> getClassesByLevel(String level) {
+    return classes.where((c) => c.level == level).toList();
+  }
 }
