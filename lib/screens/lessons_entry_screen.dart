@@ -26,7 +26,6 @@ class _LessonsEntryScreenState extends State<LessonsEntryScreen> {
   Widget build(BuildContext context) {
     final s = AppStore.instance;
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
         title: const Text('الإدخال السريع للحصص'),
         backgroundColor: s.primaryColor,
@@ -45,18 +44,18 @@ class _LessonsEntryScreenState extends State<LessonsEntryScreen> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: s.isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
                   boxShadow: [
                     BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))
                   ]
                 ),
                 child: DropdownButtonFormField<String>(
                   value: _classId,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'اختر الفصل المراد إدخال جدوله',
-                    prefixIcon: Icon(Icons.groups),
+                    prefixIcon: const Icon(Icons.groups),
                     isDense: true,
-                    fillColor: Color(0xFFF5F7FA),
+                    fillColor: s.isDarkMode ? const Color(0xFF2C2C2C) : const Color(0xFFF5F7FA),
                   ),
                   items: s.classes
                       .map((c) => DropdownMenuItem(value: c.id, child: Text(c.name)))
@@ -73,7 +72,6 @@ class _LessonsEntryScreenState extends State<LessonsEntryScreen> {
                   itemBuilder: (context, day) {
                     return Card(
                       margin: const EdgeInsets.only(bottom: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                       child: Padding(
                         padding: const EdgeInsets.all(16),
                         child: Column(
@@ -93,7 +91,7 @@ class _LessonsEntryScreenState extends State<LessonsEntryScreen> {
                                 ),
                               ],
                             ),
-                            const Divider(),
+                            Divider(color: s.isDarkMode ? Colors.white12 : Colors.grey.shade300),
                             const SizedBox(height: 8),
                             
                             // شبكة الحصص
@@ -111,7 +109,7 @@ class _LessonsEntryScreenState extends State<LessonsEntryScreen> {
                                         style: TextStyle(
                                           fontSize: 11 * s.fontScale,
                                           fontWeight: FontWeight.bold,
-                                          color: Colors.grey.shade600,
+                                          color: s.isDarkMode ? Colors.white70 : Colors.grey.shade600,
                                         ),
                                       ),
                                       const SizedBox(height: 4),
@@ -121,8 +119,11 @@ class _LessonsEntryScreenState extends State<LessonsEntryScreen> {
                                         height: 70,
                                         onTap: () async {
                                           if (_classId == null) return;
-                                          await showDialog(
+                                          // استخدام Bottom Sheet بدلاً من نافذة في المنتصف
+                                          await showModalBottomSheet(
                                             context: context,
+                                            isScrollControlled: true,
+                                            backgroundColor: Colors.transparent,
                                             builder: (_) => LessonDialog(
                                               day: day,
                                               lessonIndex: i,
