@@ -56,7 +56,12 @@ class SchoolScheduleApp extends StatelessWidget {
               elevation: 0,
               backgroundColor: Colors.transparent,
               foregroundColor: s.isDarkMode ? Colors.white : s.primaryColor,
-              titleTextStyle: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: s.isDarkMode ? Colors.white : s.primaryColor, fontFamily: GoogleFonts.getFont(s.fontFamily).fontFamily),
+              titleTextStyle: TextStyle(
+                fontSize: 20, 
+                fontWeight: FontWeight.bold, 
+                color: s.isDarkMode ? Colors.white : s.primaryColor, 
+                fontFamily: GoogleFonts.getFont(s.fontFamily).fontFamily
+              ),
             ),
             cardTheme: CardTheme(
               elevation: 0,
@@ -77,4 +82,19 @@ class SchoolScheduleApp extends StatelessWidget {
             ),
             filledButtonTheme: FilledButtonThemeData(
               style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal:
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(s.uiRadius)),
+                textStyle: TextStyle(
+                  fontWeight: FontWeight.bold, 
+                  fontSize: 16, 
+                  fontFamily: GoogleFonts.getFont(s.fontFamily).fontFamily
+                ),
+              ),
+            ),
+          ),
+          home: const HomeScreen(),
+        );
+      }
+    );
+  }
+}
