@@ -394,13 +394,15 @@ class _TimetableScreenState extends State<TimetableScreen> {
           _selector(),
           _banner(),
           Expanded(
-            child: SingleChildScrollView(
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Padding(
-                  padding: const EdgeInsets.all(10),
-                  child: _buildTable(),
-                ),
+            // ميزة التكبير والتصغير
+            child: InteractiveViewer(
+              constrained: false,
+              minScale: 0.3,
+              maxScale: 2.0,
+              boundaryMargin: const EdgeInsets.all(50),
+              child: Padding(
+                padding: const EdgeInsets.all(10),
+                child: _buildTable(),
               ),
             ),
           ),
