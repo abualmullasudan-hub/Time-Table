@@ -48,7 +48,8 @@ class TimetableScreen extends StatefulWidget {
 class _TimetableScreenState extends State<TimetableScreen> {
   String? _selectedId;
   Timer? _timer;
-  bool _showBanner = true;
+  // تم إزالة كلمة final من هنا لتجنب التحذير
+  bool _showBanner = true; 
 
   bool get _teacherMode => widget.teacherMode;
 
@@ -115,14 +116,18 @@ class _TimetableScreenState extends State<TimetableScreen> {
                 children: [
                   DropdownButtonFormField<String>(
                     decoration: const InputDecoration(labelText: 'المرحلة الدراسية'),
-                    items: ['ابتدائي', 'متوسط', 'ثانوي'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                    items: ['ابتدائي', 'متوسط', 'ثانوي']
+                        .map((e) => DropdownMenuItem<String>(value: e, child: Text(e))) // تم إضافة <String>
+                        .toList(),
                     onChanged: (v) => setDialogState(() { selectedLevel = v; selectedClassId = null; }),
                   ),
                   const SizedBox(height: 12),
                   if (selectedLevel != null)
                     DropdownButtonFormField<String>(
                       decoration: const InputDecoration(labelText: 'الفصل'),
-                      items: classes.map((c) => DropdownMenuItem(value: c.id, child: Text(c.name))).toList(),
+                      items: classes
+                          .map((c) => DropdownMenuItem<String>(value: c.id, child: Text(c.name))) // تم إضافة <String>
+                          .toList(),
                       onChanged: (v) => setDialogState(() => selectedClassId = v),
                     ),
                 ],
