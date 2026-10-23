@@ -17,22 +17,28 @@ class LessonBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStore.instance;
     final l = lesson;
+    final isNotEmpty = l != null;
+
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(6),
+      borderRadius: BorderRadius.circular(8),
       child: Container(
         height: height,
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-        alignment: Alignment.center,
+        padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(
-          color: l == null ? Colors.white : const Color(0xFFE8F0FE),
-          borderRadius: BorderRadius.circular(6),
+          // خلفية ملونة بشفافية إذا كانت الحصة موجودة، أو رمادية فاتحة إذا كانت فارغة
+          color: isNotEmpty ? s.primaryColor.withOpacity(0.08) : Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isNotEmpty ? s.primaryColor.withOpacity(0.3) : Colors.grey.shade200,
+            width: 1,
+          ),
         ),
-        child: l == null
-            ? Icon(Icons.add, size: 18, color: Colors.grey.shade400)
-            : Column(
+        child: isNotEmpty
+            ? Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
@@ -40,21 +46,32 @@ class LessonBox extends StatelessWidget {
                     textAlign: TextAlign.center,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w800, fontSize: 13),
+                    style: TextStyle(
+                      // تطبيق إعدادات الخطوط من الثيم
+                      fontWeight: s.fontWeight == FontWeight.bold ? FontWeight.bold : FontWeight.w700,
+                      fontSize: 13 * s.fontScale,
+                      color: s.primaryColor,
+                      height: 1.2,
+                    ),
                   ),
                   if (subtitle != null) ...[
-                    const SizedBox(height: 3),
+                    const SizedBox(height: 2),
                     Text(
                       subtitle!,
                       textAlign: TextAlign.center,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                          fontSize: 11, color: Colors.blueGrey.shade600),
+                        fontSize: 10 * s.fontScale,
+                        color: Colors.black54,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ],
                 ],
+              )
+            : Center(
+                child: Icon(Icons.add, size: 20, color: Colors.grey.shade400),
               ),
       ),
     );
