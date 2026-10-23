@@ -15,78 +15,83 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = AppStore.instance;
     
-    return Scaffold(
-      body: SafeArea(
-        child: CustomScrollView(
-          slivers: [
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 20, 24, 10),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+    // تم إضافة ListenableBuilder هنا لضمان تحديث الشاشة فور حفظ البيانات
+    return ListenableBuilder(
+      listenable: s,
+      builder: (context, _) {
+        return Scaffold(
+          body: SafeArea(
+            child: CustomScrollView(
+              slivers: [
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 20, 24, 10),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('أهلاً بك 👋', style: TextStyle(fontSize: 16, color: s.isDarkMode ? Colors.white70 : Colors.grey, fontWeight: FontWeight.w600)),
-                        // تم إصلاح الخطأ هنا (حذف s.fontWeight)
-                        Text(s.schoolName, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: s.isDarkMode ? Colors.white : s.primaryColor)),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('أهلاً بك 👋', style: TextStyle(fontSize: 16, color: s.isDarkMode ? Colors.white70 : Colors.grey, fontWeight: FontWeight.w600)),
+                            Text(s.schoolName, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: s.isDarkMode ? Colors.white : s.primaryColor)),
+                          ],
+                        ),
+                        CircleAvatar(
+                          radius: 26,
+                          backgroundColor: s.primaryColor.withOpacity(0.1),
+                          child: Icon(Icons.school, color: s.primaryColor, size: 30),
+                        ),
                       ],
                     ),
-                    CircleAvatar(
-                      radius: 26,
-                      backgroundColor: s.primaryColor.withOpacity(0.1),
-                      child: Icon(Icons.school, color: s.primaryColor, size: 30),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 10),
-                child: Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [s.primaryColor, s.primaryColor.withOpacity(0.7)],
-                      begin: Alignment.topLeft, end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(s.uiRadius + 8),
-                    boxShadow: [
-                      BoxShadow(color: s.primaryColor.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 10)),
-                    ],
                   ),
-                  child: _buildNextLessonCard(s),
                 ),
-              ),
-            ),
 
-            SliverPadding(
-              padding: const EdgeInsets.all(24),
-              sliver: SliverGrid(
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  mainAxisSpacing: 16,
-                  crossAxisSpacing: 16,
-                  childAspectRatio: 1.05,
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 10),
+                    child: Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [s.primaryColor, s.primaryColor.withOpacity(0.7)],
+                          begin: Alignment.topLeft, end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(s.uiRadius + 8),
+                        boxShadow: [
+                          BoxShadow(color: s.primaryColor.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 10)),
+                        ],
+                      ),
+                      child: _buildNextLessonCard(s),
+                    ),
+                  ),
                 ),
-                delegate: SliverChildListDelegate([
-                  _buildActionCard(context, Icons.person_pin, 'جدول المعلم', const Color(0xFF4F46E5), () => _go(context, const TimetableScreen(teacherMode: true))),
-                  _buildActionCard(context, Icons.grid_view_rounded, 'جداول الفصول', const Color(0xFF0D9488), () => _go(context, const TimetableScreen(teacherMode: false))),
-                  _buildActionCard(context, Icons.edit_calendar, 'إدخال الحصص', const Color(0xFFEA580C), () => _go(context, const LessonsEntryScreen())),
-                  _buildActionCard(context, Icons.schedule, 'إدارة الأوقات', const Color(0xFF475569), () => _go(context, const TimesScreen())),
-                  _buildActionCard(context, Icons.notifications_active, 'التنبيهات', const Color(0xFFE11D48), () => _go(context, const NotificationsScreen())),
-                  _buildActionCard(context, Icons.free_breakfast, 'الأنشطة', const Color(0xFFD97706), () => _go(context, const ActivitiesScreen())),
-                  _buildActionCard(context, Icons.palette, 'تخصيص المظهر', const Color(0xFF9333EA), () => _go(context, const ThemeSettingsScreen())),
-                  _buildActionCard(context, Icons.settings, 'الإعدادات', const Color(0xFF64748B), () => _go(context, const BasicsScreen())),
-                ]),
-              ),
+
+                SliverPadding(
+                  padding: const EdgeInsets.all(24),
+                  sliver: SliverGrid(
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      mainAxisSpacing: 16,
+                      crossAxisSpacing: 16,
+                      childAspectRatio: 1.05,
+                    ),
+                    delegate: SliverChildListDelegate([
+                      _buildActionCard(context, Icons.person_pin, 'جدول المعلم', const Color(0xFF4F46E5), () => _go(context, const TimetableScreen(teacherMode: true))),
+                      _buildActionCard(context, Icons.grid_view_rounded, 'جداول الفصول', const Color(0xFF0D9488), () => _go(context, const TimetableScreen(teacherMode: false))),
+                      _buildActionCard(context, Icons.edit_calendar, 'إدخال الحصص', const Color(0xFFEA580C), () => _go(context, const LessonsEntryScreen())),
+                      _buildActionCard(context, Icons.schedule, 'إدارة الأوقات', const Color(0xFF475569), () => _go(context, const TimesScreen())),
+                      _buildActionCard(context, Icons.notifications_active, 'التنبيهات', const Color(0xFFE11D48), () => _go(context, const NotificationsScreen())),
+                      _buildActionCard(context, Icons.free_breakfast, 'الأنشطة', const Color(0xFFD97706), () => _go(context, const ActivitiesScreen())),
+                      _buildActionCard(context, Icons.palette, 'تخصيص المظهر', const Color(0xFF9333EA), () => _go(context, const ThemeSettingsScreen())),
+                      _buildActionCard(context, Icons.settings, 'الإعدادات', const Color(0xFF64748B), () => _go(context, const BasicsScreen())),
+                    ]),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      }
     );
   }
 
