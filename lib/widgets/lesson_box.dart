@@ -21,20 +21,28 @@ class LessonBox extends StatelessWidget {
     final l = lesson;
     final isNotEmpty = l != null;
 
+    Color subjectColor = s.primaryColor;
+    if (isNotEmpty) {
+      final subject = s.subjects.firstWhere(
+        (sub) => sub.name == l.subject, 
+        orElse: () => Subject('', '', colorValue: s.primaryColor.value)
+      );
+      subjectColor = subject.color;
+    }
+
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(s.uiRadius * 0.5),
       child: Container(
         height: height,
         width: double.infinity,
-        padding: const EdgeInsets.all(4),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
         decoration: BoxDecoration(
-          // خلفية ملونة بشفافية إذا كانت الحصة موجودة، أو رمادية فاتحة إذا كانت فارغة
-          color: isNotEmpty ? s.primaryColor.withOpacity(0.08) : Colors.grey.shade50,
-          borderRadius: BorderRadius.circular(8),
+          color: isNotEmpty ? subjectColor.withOpacity(s.isDarkMode ? 0.2 : 0.1) : Colors.transparent,
+          borderRadius: BorderRadius.circular(s.uiRadius * 0.5),
           border: Border.all(
-            color: isNotEmpty ? s.primaryColor.withOpacity(0.3) : Colors.grey.shade200,
-            width: 1,
+            color: isNotEmpty ? subjectColor.withOpacity(0.4) : (s.isDarkMode ? Colors.white12 : Colors.grey.shade300),
+            width: 1.5,
           ),
         ),
         child: isNotEmpty
@@ -47,11 +55,9 @@ class LessonBox extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      // تطبيق إعدادات الخطوط من الثيم
-                      fontWeight: s.fontWeight == FontWeight.bold ? FontWeight.bold : FontWeight.w700,
-                      fontSize: 13 * s.fontScale,
-                      color: s.primaryColor,
-                      height: 1.2,
+                      fontWeight: FontWeight.bold, // تم إصلاح الخطأ هنا
+                      fontSize: 12 * s.fontScale,
+                      color: subjectColor,
                     ),
                   ),
                   if (subtitle != null) ...[
@@ -63,16 +69,14 @@ class LessonBox extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 10 * s.fontScale,
-                        color: Colors.black54,
-                        fontWeight: FontWeight.w500,
+                        color: s.isDarkMode ? Colors.white70 : Colors.black54,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
                 ],
               )
-            : Center(
-                child: Icon(Icons.add, size: 20, color: Colors.grey.shade400),
-              ),
+            : Center(child: Icon(Icons.add, size: 20, color: s.isDarkMode ? Colors.white24 : Colors.grey.shade400)),
       ),
     );
   }
