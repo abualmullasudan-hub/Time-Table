@@ -40,11 +40,11 @@ class _TimesScreenState extends State<TimesScreen> {
           title: const Text('إدارة الأوقات'),
           backgroundColor: s.primaryColor,
           foregroundColor: Colors.white,
-          bottom: TabBar(
+          bottom: const TabBar( // تمت إضافة const هنا
             labelColor: Colors.white,
             unselectedLabelColor: Colors.white70,
             indicatorColor: Colors.white,
-            tabs: const [
+            tabs: [
               Tab(text: 'أوقات الحصص', icon: Icon(Icons.schedule)),
               Tab(text: 'أوقات الأنشطة', icon: Icon(Icons.free_breakfast)),
             ],
@@ -100,7 +100,6 @@ class _TimesScreenState extends State<TimesScreen> {
                 // 2. تبويب أوقات الأنشطة
                 Column(
                   children: [
-                    // اختيار اليوم
                     Container(
                       padding: const EdgeInsets.all(12),
                       color: s.primaryColor.withOpacity(0.05),
