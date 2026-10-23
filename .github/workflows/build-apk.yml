@@ -25,17 +25,25 @@ jobs:
         flutter-version: '3.24.0'
         channel: 'stable'
 
-    - name: Create Android platform folder
+    # 1. إنشاء مجلد Android أولاً
+    - name: Create Android Platform
       run: flutter create --project-name time_table . --platforms=android
 
-    - name: Install dependencies
-      run: flutter pub get
-
-    - name: Install NDK
+    # 2. تثبيت NDK وقبول التراخيص
+    - name: Install NDK and Accept Licenses
       run: |
         $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
         $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk;26.1.10909125"
+
+    # 3. إجبار المشروع على استخدام الإصدارات المتوافقة (هذه هي الخطوة الحاسمة)
+    - name: Configure Android Versions
+      run: |
         sed -i 's/ndkVersion .*/ndkVersion "26.1.10909125"/g' android/app/build.gradle
+        sed -i 's/compileSdkVersion .*/compileSdkVersion 35/g' android/app/build.gradle
+        sed -i 's/targetSdkVersion .*/targetSdkVersion 35/g' android/app/build.gradle
+
+    - name: Install dependencies
+      run: flutter pub get
 
     - name: Build APK
       run: flutter build apk --release
