@@ -11,101 +11,143 @@ class LessonsEntryScreen extends StatefulWidget {
 }
 
 class _LessonsEntryScreenState extends State<LessonsEntryScreen> {
-  late String _classId;
+  String? _classId;
 
   @override
   void initState() {
     super.initState();
-    _classId = AppStore.instance.classes.first.id;
+    final s = AppStore.instance;
+    if (s.classes.isNotEmpty) {
+      _classId = s.classes.first.id;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final s = AppStore.instance;
     return Scaffold(
+      backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
-        title: const Text('إدخال الحصص'),
-        backgroundColor: const Color(0xFF1565C0),
+        title: const Text('الإدخال السريع للحصص'),
+        backgroundColor: s.primaryColor,
         foregroundColor: Colors.white,
       ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: DropdownButtonFormField<String>(
-              value: _classId,
-              decoration: const InputDecoration(
-                labelText: 'الفصل',
-                border: OutlineInputBorder(),
-                filled: true,
-                fillColor: Colors.white,
-              ),
-              items: s.classes
-                  .map((c) => DropdownMenuItem(value: c.id, child: Text(c.name)))
-                  .toList(),
-              onChanged: (v) => setState(() => _classId = v!),
-            ),
-          ),
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
-              itemCount: kDayCount,
-              itemBuilder: (context, day) {
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  child: Padding(
-                    padding: const EdgeInsets.all(10),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(kDayNames[day],
-                            style: const TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 15)),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 6,
-                          runSpacing: 6,
-                          children: List.generate(kLessonCount, (i) {
-                            final l = s.lessonAt(day, i, _classId);
-                            return SizedBox(
-                              width: 96,
-                              child: Column(
-                                children: [
-                                  Text('حصة ${i + 1}',
-                                      style: TextStyle(
-                                          fontSize: 10,
-                                          color: Colors.blueGrey.shade600)),
-                                  const SizedBox(height: 2),
-                                  LessonBox(
-                                    lesson: l,
-                                    subtitle:
-                                        l == null ? null : s.teacherName(l.teacherId),
-                                    onTap: () async {
-                                      await showDialog(
-                                        context: context,
-                                        builder: (_) => LessonDialog(
-                                          day: day,
-                                          lessonIndex: i,
-                                          existing: l,
-                                          fixedClassId: _classId,
-                                        ),
-                                      );
-                                      if (mounted) setState(() {});
-                                    },
-                                  ),
-                                ],
-                              ),
-                            );
-                          }),
-                        ),
-                      ],
-                    ),
+      body: ListenableBuilder(
+        listenable: s,
+        builder: (context, _) {
+          if (s.classes.isEmpty) {
+            return const Center(child: Text('يرجى إضافة فصول أولاً من الإعدادات'));
+          }
+
+          return Column(
+            children: [
+              // اختيار الفصل
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))
+                  ]
+                ),
+                child: DropdownButtonFormField<String>(
+                  value: _classId,
+                  decoration: const InputDecoration(
+                    labelText: 'اختر الفصل المراد إدخال جدوله',
+                    prefixIcon: Icon(Icons.groups),
+                    isDense: true,
+                    fillColor: Color(0xFFF5F7FA),
                   ),
-                );
-              },
-            ),
-          ),
-        ],
+                  items: s.classes
+                      .map((c) => DropdownMenuItem(value: c.id, child: Text(c.name)))
+                      .toList(),
+                  onChanged: (v) => setState(() => _classId = v!),
+                ),
+              ),
+              
+              // جدول الإدخال
+              Expanded(
+                child: ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: kDayCount,
+                  itemBuilder: (context, day) {
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(Icons.today, color: s.primaryColor, size: 20),
+                                const SizedBox(width: 8),
+                                Text(
+                                  kDayNames[day],
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold, 
+                                    fontSize: 16 * s.fontScale,
+                                    color: s.primaryColor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const Divider(),
+                            const SizedBox(height: 8),
+                            
+                            // شبكة الحصص
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: List.generate(kLessonCount, (i) {
+                                final l = _classId == null ? null : s.lessonAt(day, i, _classId!);
+                                return SizedBox(
+                                  width: 100,
+                                  child: Column(
+                                    children: [
+                                      Text(
+                                        'حصة ${i + 1}',
+                                        style: TextStyle(
+                                          fontSize: 11 * s.fontScale,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.grey.shade600,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      LessonBox(
+                                        lesson: l,
+                                        subtitle: l == null ? null : s.teacherName(l.teacherId),
+                                        height: 70,
+                                        onTap: () async {
+                                          if (_classId == null) return;
+                                          await showDialog(
+                                            context: context,
+                                            builder: (_) => LessonDialog(
+                                              day: day,
+                                              lessonIndex: i,
+                                              existing: l,
+                                              fixedClassId: _classId,
+                                            ),
+                                          );
+                                          if (mounted) setState(() {});
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          );
+        }
       ),
     );
   }
