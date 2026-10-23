@@ -188,6 +188,14 @@ class AppStore extends ChangeNotifier {
   }
 
   void setLesson(Lesson l) { lessons[l.key] = l; saveData(); notifyListeners(); }
+  
+  // تم إضافة دالة الحذف هنا
+  void removeLesson(int day, int lessonIndex, String classId) { 
+    lessons.remove(Lesson.keyOf(day, lessonIndex, classId)); 
+    saveData(); 
+    notifyListeners(); 
+  }
+
   void setActivity(int day, String keyName, String title) { activities[ActivitySlot.keyOf(day, keyName)]!.title = title; saveData(); notifyListeners(); }
   void setSlotTime(int index, {TimeOfDay? start, TimeOfDay? end}) {
     if (start != null) times[index].start = start;
