@@ -282,8 +282,20 @@ class _TimetableScreenState extends State<TimetableScreen> {
 
   Widget _selector() {
     final s = AppStore.instance;
-    final items = _teacherMode ? s.teachers : s.classes;
-    if (items.isEmpty) return const SizedBox.shrink();
+    
+    List<DropdownMenuItem<String>> dropdownItems = [];
+    if (_teacherMode) {
+      if (s.teachers.isEmpty) return const SizedBox.shrink();
+      dropdownItems = s.teachers
+          .map((t) => DropdownMenuItem(value: t.id, child: Text(t.name)))
+          .toList();
+    } else {
+      if (s.classes.isEmpty) return const SizedBox.shrink();
+      dropdownItems = s.classes
+          .map((c) => DropdownMenuItem(value: c.id, child: Text(c.name)))
+          .toList();
+    }
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
       child: DropdownButtonFormField<String>(
@@ -296,11 +308,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
           filled: true,
           fillColor: Colors.white,
         ),
-        items: items
-            .map((e) => DropdownMenuItem(
-                value: e.id,
-                child: Text(e is Teacher ? e.name : (e as SchoolClass).name)))
-            .toList(),
+        items: dropdownItems,
         onChanged: (v) => setState(() => _selectedId = v!),
       ),
     );
