@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import '../data.dart';
 import '../widgets/lesson_box.dart';
 import '../widgets/lesson_dialog.dart';
-import '../utils/pdf_generator.dart'; // استدعاء ملف الـ PDF
+import '../utils/pdf_generator.dart';
 
 class TimetableScreen extends StatefulWidget {
   final bool teacherMode;
@@ -137,24 +137,29 @@ class _TimetableScreenState extends State<TimetableScreen> {
       },
       defaultVerticalAlignment: TableCellVerticalAlignment.middle,
       children: [
+        // الصف الأول: العناوين
         TableRow(
           decoration: BoxDecoration(color: s.primaryColor.withOpacity(0.1)),
           children: ['اليوم', 'نشاط', '1', '2', '3', '4', 'نشاط', '5', '6', 'نشاط', '7', '8']
               .map((t) => SizedBox(height: 38, child: Center(child: Text(t, style: TextStyle(fontWeight: FontWeight.bold, color: s.primaryColor)))))
               .toList(),
         ),
+        
+        // الصف الثاني: أوقات الحصص (تم إصلاح الخطأ هنا ليكون 12 عموداً بالضبط)
         TableRow(
           decoration: BoxDecoration(color: s.primaryColor.withOpacity(0.05)),
           children: [
-            const SizedBox(height: 38),
-            const SizedBox(height: 38),
-            // تم إزالة toList() من هنا لحل خطأ البناء السابق
-            ...s.times.map((t) => SizedBox(height: 38, child: Center(child: Text(t.label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold))))), 
-            const SizedBox(height: 38),
-            const SizedBox(height: 38),
-            const SizedBox(height: 38),
+            const SizedBox(height: 38), // 1
+            const SizedBox(height: 38), // 2
+            ...s.times.sublist(0, 4).map((t) => SizedBox(height: 38, child: Center(child: Text(t.label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold))))), // 3,4,5,6
+            const SizedBox(height: 38), // 7
+            ...s.times.sublist(4, 6).map((t) => SizedBox(height: 38, child: Center(child: Text(t.label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold))))), // 8,9
+            const SizedBox(height: 38), // 10
+            ...s.times.sublist(6, 8).map((t) => SizedBox(height: 38, child: Center(child: Text(t.label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold))))), // 11,12
           ],
         ),
+        
+        // صفوف الأيام
         ...List.generate(kDayCount, (d) {
           return TableRow(
             children: [
@@ -217,7 +222,6 @@ class _TimetableScreenState extends State<TimetableScreen> {
         backgroundColor: s.primaryColor, 
         foregroundColor: Colors.white,
         actions: [
-          // زر تصدير PDF الجديد
           IconButton(
             icon: const Icon(Icons.picture_as_pdf),
             tooltip: 'تصدير كملف PDF',
