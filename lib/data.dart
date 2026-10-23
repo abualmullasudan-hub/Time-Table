@@ -105,7 +105,7 @@ class AppStore extends ChangeNotifier {
   String schoolName = 'مدرسة النور';
   String academicYear = '1445 هـ - 2024 م';
 
-  // إعدادات المظهر (الجديدة)
+  // إعدادات المظهر
   bool isDarkMode = false;
   Color primaryColor = const Color(0xFF1E1B4B);
   String fontFamily = 'Tajawal';
@@ -133,7 +133,6 @@ class AppStore extends ChangeNotifier {
         schoolName = data['schoolName'] ?? schoolName;
         academicYear = data['academicYear'] ?? academicYear;
         
-        // تحميل إعدادات المظهر
         isDarkMode = data['isDarkMode'] ?? false;
         primaryColor = Color(data['primaryColor'] ?? 0xFF1E1B4B);
         fontFamily = data['fontFamily'] ?? 'Tajawal';
@@ -302,8 +301,6 @@ class AppStore extends ChangeNotifier {
   void updateSubject(String id, String name, int colorValue) { final s = subjects.firstWhere((x) => x.id == id); s.name = name; s.colorValue = colorValue; saveData(); notifyListeners(); }
 
   void setSchoolInfo(String name, String year) { schoolName = name; academicYear = year; saveData(); notifyListeners(); }
-  
-  // دوال حفظ التصميم الجديدة
   void setThemeMode(bool isDark) { isDarkMode = isDark; saveData(); notifyListeners(); }
   void setPrimaryColor(Color color) { primaryColor = color; saveData(); notifyListeners(); }
   void setFontFamily(String font) { fontFamily = font; saveData(); notifyListeners(); }
