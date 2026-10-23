@@ -13,7 +13,8 @@ class SchoolScheduleApp extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = AppStore.instance;
     
-    TextTheme _getTextTheme() {
+    // تم حذف الشرطة السفلية من اسم الدالة هنا
+    TextTheme getTextTheme() {
       switch (s.fontFamily) {
         case 'Cairo': return GoogleFonts.cairoTextTheme();
         case 'Almarai': return GoogleFonts.almaraiTextTheme();
@@ -42,13 +43,13 @@ class SchoolScheduleApp extends StatelessWidget {
           theme: ThemeData(
             useMaterial3: true,
             brightness: s.isDarkMode ? Brightness.dark : Brightness.light,
-            textTheme: _getTextTheme(),
+            textTheme: getTextTheme(), // تم التعديل هنا
             colorScheme: ColorScheme.fromSeed(
               seedColor: s.primaryColor,
               primary: s.primaryColor,
               brightness: s.isDarkMode ? Brightness.dark : Brightness.light,
-              background: s.isDarkMode ? const Color(0xFF121212) : const Color(0xFFF8FAFC),
-              surface: s.isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
+              // تم حذف background واستخدام surface
+              surface: s.isDarkMode ? const Color(0xFF1E1E1E) : Colors.white, 
             ),
             scaffoldBackgroundColor: s.isDarkMode ? const Color(0xFF121212) : const Color(0xFFF8FAFC),
             appBarTheme: AppBarTheme(
