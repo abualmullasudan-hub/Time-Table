@@ -13,51 +13,28 @@ class _Col {
   final String activityKey;
   final double width;
 
-  _Col.day()
-      : type = _ColType.day,
-        lessonIndex = -1,
-        activityKey = '',
-        width = 94;
-
-  _Col.activity(this.activityKey)
-      : type = _ColType.activity,
-        lessonIndex = -1,
-        width = 80;
-
-  _Col.lesson(this.lessonIndex)
-      : type = _ColType.lesson,
-        activityKey = '',
-        width = 134;
+  _Col.day() : type = _ColType.day, lessonIndex = -1, activityKey = '', width = 94;
+  _Col.activity(this.activityKey) : type = _ColType.activity, lessonIndex = -1, width = 80;
+  _Col.lesson(this.lessonIndex) : type = _ColType.lesson, activityKey = '', width = 134;
 
   String get topLabel {
     switch (type) {
-      case _ColType.day:
-        return 'اليوم';
-      case _ColType.activity:
-        return 'نشاط';
-      case _ColType.lesson:
-        return '${lessonIndex + 1}';
+      case _ColType.day: return 'اليوم';
+      case _ColType.activity: return 'نشاط';
+      case _ColType.lesson: return '${lessonIndex + 1}';
     }
   }
 
   String get bottomLabel {
     switch (type) {
-      case _ColType.day:
-        return '';
+      case _ColType.day: return '';
       case _ColType.activity:
         if (activityKey == kAssemblyKey) return 'الطابور';
         if (activityKey == kBreakfastKey) return 'الفطور';
         return 'الصلاة';
-      case _ColType.lesson:
-        return AppStore.instance.times[lessonIndex].label;
+      case _ColType.lesson: return AppStore.instance.times[lessonIndex].label;
     }
   }
-}
-
-class _BannerInfo {
-  final Lesson lesson;
-  final bool isNow;
-  _BannerInfo(this.lesson, this.isNow);
 }
 
 class TimetableScreen extends StatefulWidget {
@@ -69,19 +46,18 @@ class TimetableScreen extends StatefulWidget {
 }
 
 class _TimetableScreenState extends State<TimetableScreen> {
-  late String _selectedId;
+  String? _selectedId;
   Timer? _timer;
   bool _showBanner = true;
-  bool _isLandscape = true;
 
   bool get _teacherMode => widget.teacherMode;
 
   @override
   void initState() {
     super.initState();
-    final s = AppStore.instance;
-    _selectedId = _teacherMode ? s.teachers.first.id : s.classes.first.id;
     
+    // إجبار الشاشة على الوضع الأفقي وملء الشاشة
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.landscapeLeft,
       DeviceOrientation.landscapeRight,
@@ -90,10 +66,21 @@ class _TimetableScreenState extends State<TimetableScreen> {
     _timer = Timer.periodic(const Duration(seconds: 20), (_) {
       if (mounted) setState(() {});
     });
+    
+    // إذا كان معلم، نختار أول معلم افتراضياً. إذا كان فصلاً، نطلب الاختيار.
+    if (_teacherMode) {
+      if (AppStore.instance.teachers.isNotEmpty) {
+        _selectedId = AppStore.instance.teachers.first.id;
+      }
+    } else {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _selectClassDialog());
+    }
   }
 
   @override
   void dispose() {
+    // إعادة الشاشة للوضع الطبيعي عند الخروج
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
       DeviceOrientation.portraitDown,
@@ -102,171 +89,121 @@ class _TimetableScreenState extends State<TimetableScreen> {
     super.dispose();
   }
 
-  void _toggleOrientation() {
-    setState(() {
-      _isLandscape = !_isLandscape;
-      if (_isLandscape) {
-        SystemChrome.setPreferredOrientations([
-          DeviceOrientation.landscapeLeft,
-          DeviceOrientation.landscapeRight,
-        ]);
-      } else {
-        SystemChrome.setPreferredOrientations([
-          DeviceOrientation.portraitUp,
-          DeviceOrientation.portraitDown,
-        ]);
-      }
-    });
-  }
-
-  Lesson? _lessonAt(int day, int idx) {
+  void _selectClassDialog() {
     final s = AppStore.instance;
-    return _teacherMode
-        ? s.lessonForTeacher(day, idx, _selectedId)
-        : s.lessonAt(day, idx, _selectedId);
-  }
-
-  _BannerInfo? _currentOrNext() {
-    final s = AppStore.instance;
-    final d = todaySchoolIndex();
-    if (d < 0) return null;
-
-    final now = TimeOfDay.now();
-    final nowMin = now.hour * 60 + now.minute;
-
-    final list = <Lesson>[];
-    for (final l in s.lessons.values) {
-      if (l.day != d) continue;
-      if (_teacherMode ? l.teacherId != _selectedId : l.classId != _selectedId) {
-        continue;
-      }
-      list.add(l);
+    if (s.classes.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('لا توجد فصول مضافة. يرجى إضافة فصول من الإعدادات.')));
+      Navigator.pop(context);
+      return;
     }
-    if (list.isEmpty) return null;
-    list.sort((a, b) => a.lessonIndex.compareTo(b.lessonIndex));
 
-    for (final l in list) {
-      final t = s.times[l.lessonIndex];
-      if (nowMin >= t.startMinutes - 10 && nowMin <= t.endMinutes) {
-        return _BannerInfo(l, nowMin >= t.startMinutes);
-      }
-    }
-    for (final l in list) {
-      final t = s.times[l.lessonIndex];
-      if (nowMin < t.startMinutes) return _BannerInfo(l, false);
-    }
-    return null;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        String? selectedLevel;
+        String? selectedClassId;
+        
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final classes = selectedLevel == null ? [] : s.classes.where((c) => c.level == selectedLevel).toList();
+            
+            return AlertDialog(
+              title: const Text('اختر المرحلة والفصل'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  DropdownButtonFormField<String>(
+                    decoration: const InputDecoration(labelText: 'المرحلة الدراسية'),
+                    items: ['ابتدائي', 'متوسط', 'ثانوي'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                    onChanged: (v) => setDialogState(() { selectedLevel = v; selectedClassId = null; }),
+                  ),
+                  const SizedBox(height: 12),
+                  if (selectedLevel != null)
+                    DropdownButtonFormField<String>(
+                      decoration: const InputDecoration(labelText: 'الفصل'),
+                      items: classes.map((c) => DropdownMenuItem(value: c.id, child: Text(c.name))).toList(),
+                      onChanged: (v) => setDialogState(() => selectedClassId = v),
+                    ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx), 
+                  child: const Text('إلغاء')
+                ),
+                FilledButton(
+                  onPressed: selectedClassId == null ? null : () {
+                    setState(() => _selectedId = selectedClassId);
+                    Navigator.pop(ctx);
+                  },
+                  child: const Text('عرض الجدول'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   List<_Col> _columns() {
     final cols = <_Col>[_Col.day(), _Col.activity(kAssemblyKey)];
-    for (var i = 0; i < 4; i++) {
-      cols.add(_Col.lesson(i));
-    }
+    for (var i = 0; i < 4; i++) { cols.add(_Col.lesson(i)); }
     cols.add(_Col.activity(kBreakfastKey));
-    for (var i = 4; i < 6; i++) {
-      cols.add(_Col.lesson(i));
-    }
+    for (var i = 4; i < 6; i++) { cols.add(_Col.lesson(i)); }
     cols.add(_Col.activity(kPrayerKey));
-    for (var i = 6; i < 8; i++) {
-      cols.add(_Col.lesson(i));
-    }
+    for (var i = 6; i < 8; i++) { cols.add(_Col.lesson(i)); }
     return cols;
   }
 
-  Widget _headerCell(String text) => SizedBox(
-        height: 38,
-        child: Center(
-          child: Text(text,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              style: const TextStyle(
-                  fontWeight: FontWeight.bold, fontSize: 12)),
-        ),
-      );
-
-  Widget _dayCell(int day) => Container(
-        height: 66,
-        alignment: Alignment.center,
-        color: const Color(0xFFE3F2FD),
-        child: Text(kDayNames[day],
-            style:
-                const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-      );
-
-  Widget _activityCell(int day, String key) => Container(
-        height: 66,
-        alignment: Alignment.center,
-        color: const Color(0xFFFFF8E1),
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        child: Text(
-          AppStore.instance.activityAt(day, key).title,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: Colors.brown.shade800),
-        ),
-      );
-
-  Widget _lessonCell(int day, int idx) {
-    final s = AppStore.instance;
-    final l = _lessonAt(day, idx);
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.all(3),
-      child: LessonBox(
-        lesson: l,
-        subtitle: l == null
-            ? null
-            : (_teacherMode ? s.className(l.classId) : s.teacherName(l.teacherId)),
-        onTap: () => _openDialog(day, idx, l),
-      ),
-    );
-  }
-
-  Future<void> _openDialog(int day, int idx, Lesson? existing) async {
-    await showDialog(
-      context: context,
-      builder: (_) => LessonDialog(
-        day: day,
-        lessonIndex: idx,
-        existing: existing,
-        fixedClassId: _teacherMode ? null : _selectedId,
-        fixedTeacherId: _teacherMode ? _selectedId : null,
-      ),
-    );
-    if (mounted) setState(() {});
-  }
-
   Widget _buildTable() {
+    if (_selectedId == null) return const Center(child: Text('لم يتم اختيار فصل'));
+
     final cols = _columns();
     final widths = <int, TableColumnWidth>{};
-    for (var i = 0; i < cols.length; i++) {
-      widths[i] = FixedColumnWidth(cols[i].width);
-    }
+    for (var i = 0; i < cols.length; i++) { widths[i] = FixedColumnWidth(cols[i].width); }
 
     final rows = <TableRow>[];
-
+    
+    // صف العناوين
     rows.add(TableRow(
       decoration: const BoxDecoration(color: Color(0xFFD6E4FF)),
-      children: cols.map((c) => _headerCell(c.topLabel)).toList(),
+      children: cols.map((c) => SizedBox(height: 38, child: Center(child: Text(c.topLabel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))))).toList(),
     ));
     rows.add(TableRow(
       decoration: const BoxDecoration(color: Color(0xFFBBDEFB)),
-      children: cols.map((c) => _headerCell(c.bottomLabel)).toList(),
+      children: cols.map((c) => SizedBox(height: 38, child: Center(child: Text(c.bottomLabel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))))).toList(),
     ));
 
+    // صفوف الأيام
     for (var d = 0; d < kDayCount; d++) {
       rows.add(TableRow(
         children: cols.map((c) {
           switch (c.type) {
             case _ColType.day:
-              return _dayCell(d);
+              return Container(height: 66, alignment: Alignment.center, color: const Color(0xFFE3F2FD), child: Text(kDayNames[d], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)));
             case _ColType.activity:
-              return _activityCell(d, c.activityKey);
+              return Container(height: 66, alignment: Alignment.center, color: const Color(0xFFFFF8E1), child: Text(AppStore.instance.activityAt(d, c.activityKey).title, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.brown.shade800)));
             case _ColType.lesson:
-              return _lessonCell(d, c.lessonIndex);
+              final s = AppStore.instance;
+              final l = _teacherMode ? s.lessonForTeacher(d, c.lessonIndex, _selectedId!) : s.lessonAt(d, c.lessonIndex, _selectedId!);
+              
+              return Container(
+                color: Colors.white, padding: const EdgeInsets.all(3),
+                child: LessonBox(
+                  lesson: l,
+                  subtitle: l == null ? null : (_teacherMode ? s.className(l.classId) : s.teacherName(l.teacherId)),
+                  onTap: () async {
+                    await showDialog(context: context, builder: (_) => LessonDialog(
+                      day: d, lessonIndex: c.lessonIndex, existing: l,
+                      fixedClassId: _teacherMode ? null : _selectedId,
+                      fixedTeacherId: _teacherMode ? _selectedId : null,
+                    ));
+                    if (mounted) setState(() {});
+                  },
+                ),
+              );
           }
         }).toList(),
       ));
@@ -280,130 +217,44 @@ class _TimetableScreenState extends State<TimetableScreen> {
     );
   }
 
-  Widget _selector() {
-    final s = AppStore.instance;
-    
-    List<DropdownMenuItem<String>> dropdownItems = [];
-    if (_teacherMode) {
-      if (s.teachers.isEmpty) return const SizedBox.shrink();
-      dropdownItems = s.teachers
-          .map((t) => DropdownMenuItem(value: t.id, child: Text(t.name)))
-          .toList();
-    } else {
-      if (s.classes.isEmpty) return const SizedBox.shrink();
-      dropdownItems = s.classes
-          .map((c) => DropdownMenuItem(value: c.id, child: Text(c.name)))
-          .toList();
-    }
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-      child: DropdownButtonFormField<String>(
-        value: _selectedId,
-        isDense: true,
-        decoration: InputDecoration(
-          labelText: _teacherMode ? 'اختر المعلم' : 'اختر الفصل',
-          prefixIcon: Icon(_teacherMode ? Icons.person : Icons.groups),
-          border: const OutlineInputBorder(),
-          filled: true,
-          fillColor: Colors.white,
-        ),
-        items: dropdownItems,
-        onChanged: (v) => setState(() => _selectedId = v!),
-      ),
-    );
-  }
-
-  Widget _banner() {
-    if (!_showBanner) return const SizedBox.shrink();
-    final info = _currentOrNext();
-    if (info == null) return const SizedBox.shrink();
-
-    final s = AppStore.instance;
-    final l = info.lesson;
-    final t = s.times[l.lessonIndex];
-
-    return Container(
-      margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.indigo.shade400, Colors.indigo.shade700],
-        ),
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: const [
-          BoxShadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, 4)),
-        ],
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.notifications_active, color: Colors.white),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '${info.isNow ? "الحصة الحالية" : "الحصة القادمة"} • الحصة ${l.lessonIndex + 1} • ${t.label}',
-                  style: const TextStyle(color: Colors.white70, fontSize: 11),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  l.subject,
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w900,
-                      fontSize: 18),
-                ),
-                Text(
-                  _teacherMode
-                      ? s.className(l.classId)
-                      : s.teacherName(l.teacherId),
-                  style: const TextStyle(color: Colors.white, fontSize: 12),
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            onPressed: () => setState(() => _showBanner = false),
-            icon: const Icon(Icons.close, color: Colors.white70, size: 18),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
+    final s = AppStore.instance;
     return Scaffold(
       appBar: AppBar(
-        title: Text(_teacherMode ? 'جدول المعلم' : 'جدول الفصل'),
-        centerTitle: true,
+        title: Text(_teacherMode ? 'جدول المعلم: ${s.teacherName(_selectedId ?? "")}' : 'جدول الفصل: ${s.className(_selectedId ?? "")}'),
         backgroundColor: const Color(0xFF1565C0),
         foregroundColor: Colors.white,
         actions: [
           IconButton(
-            icon: Icon(_isLandscape ? Icons.stay_current_portrait : Icons.stay_current_landscape),
-            onPressed: _toggleOrientation,
-            tooltip: 'تدوير الشاشة',
+            icon: const Icon(Icons.close),
+            onPressed: () => Navigator.pop(context),
+            tooltip: 'خروج',
           ),
         ],
       ),
       body: Column(
         children: [
-          _selector(),
-          _banner(),
+          if (_showBanner)
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              color: Colors.amber.shade100,
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.zoom_in, color: Colors.orange, size: 18),
+                  SizedBox(width: 8),
+                  Text('استخدم إصبعيك للتكبير والتصغير والتحريك', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                ],
+              ),
+            ),
           Expanded(
-            // ميزة التكبير والتصغير
             child: InteractiveViewer(
               constrained: false,
-              minScale: 0.3,
-              maxScale: 2.0,
+              minScale: 0.5,
+              maxScale: 2.5,
               boundaryMargin: const EdgeInsets.all(50),
-              child: Padding(
-                padding: const EdgeInsets.all(10),
-                child: _buildTable(),
-              ),
+              child: Padding(padding: const EdgeInsets.all(10), child: _buildTable()),
             ),
           ),
         ],
