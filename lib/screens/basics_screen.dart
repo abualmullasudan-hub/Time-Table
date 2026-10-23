@@ -302,8 +302,12 @@ class _BasicsScreenState extends State<BasicsScreen> {
                             selected: isSelected,
                             onSelected: (val) {
                               setDialogState(() {
-                                if (val) selectedSubjects.add(sub);
-                                else selectedSubjects.remove(sub);
+                                // تم إصلاح الخطأ هنا بإضافة الأقواس {}
+                                if (val) {
+                                  selectedSubjects.add(sub);
+                                } else {
+                                  selectedSubjects.remove(sub);
+                                }
                               });
                             },
                           );
