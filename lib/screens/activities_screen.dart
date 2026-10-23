@@ -14,8 +14,9 @@ class ActivitiesScreen extends StatelessWidget {
 
   Future<void> _edit(BuildContext context, int day, String key) async {
     final s = AppStore.instance;
-    final controller =
-        TextEditingController(text: s.activityAt(day, key).title);
+    final act = s.activityAt(day, key);
+    final controller = TextEditingController(text: act.title);
+    
     final result = await showDialog<String>(
       context: context,
       builder: (_) => AlertDialog(
@@ -42,7 +43,8 @@ class ActivitiesScreen extends StatelessWidget {
       ),
     );
     if (result != null && result.isNotEmpty) {
-      s.setActivity(day, key, result);
+      // تم تحديث الدالة لتشمل وقت البداية والنهاية الموجودين مسبقاً
+      s.setActivity(day, key, result, act.start, act.end);
     }
   }
 
@@ -51,8 +53,8 @@ class ActivitiesScreen extends StatelessWidget {
     final s = AppStore.instance;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('إدخال الأنشطة'),
-        backgroundColor: const Color(0xFF1565C0),
+        title: const Text('أسماء الأنشطة'),
+        backgroundColor: s.primaryColor,
         foregroundColor: Colors.white,
       ),
       body: ListView.builder(
@@ -72,8 +74,7 @@ class ActivitiesScreen extends StatelessWidget {
                 ),
                 ..._keys.map((k) => ListTile(
                       dense: true,
-                      leading: const Icon(Icons.event_note,
-                          color: Colors.deepOrange, size: 20),
+                      leading: Icon(Icons.event_note, color: s.primaryColor, size: 20),
                       title: Text(_label(k)),
                       subtitle: Text(s.activityAt(day, k).title),
                       trailing: const Icon(Icons.edit, size: 18),
