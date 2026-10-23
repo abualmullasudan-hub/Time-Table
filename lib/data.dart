@@ -37,17 +37,23 @@ class SlotTime {
   String get label => '${timeLabel(start)} - ${timeLabel(end)}';
 }
 
+class Subject {
+  final String id;
+  String name;
+  Subject(this.id, this.name);
+}
+
 class SchoolClass {
   final String id;
   String name;
-  String level; // 'ابتدائي', 'متوسط', 'ثانوي'
+  String level; 
   SchoolClass(this.id, this.name, this.level);
 }
 
 class Teacher {
   final String id;
   String name;
-  List<String> subjects; // تم إضافة المواد
+  List<String> subjects; 
   Teacher(this.id, this.name, {this.subjects = const []});
 }
 
@@ -74,10 +80,20 @@ class ActivitySlot {
   final int day;
   final String keyName;
   String title;
+  TimeOfDay start;
+  TimeOfDay end;
 
-  ActivitySlot({required this.day, required this.keyName, required this.title});
+  ActivitySlot({
+    required this.day, 
+    required this.keyName, 
+    required this.title,
+    required this.start,
+    required this.end,
+  });
+  
   static String keyOf(int day, String keyName) => '$day|$keyName';
   String get id => keyOf(day, keyName);
+  String get timeLabelStr => '${timeLabel(start)} - ${timeLabel(end)}';
 }
 
 class AppStore extends ChangeNotifier {
@@ -93,12 +109,15 @@ class AppStore extends ChangeNotifier {
   Color tableHeaderColor = const Color(0xFFD6E4FF);
   Color tableSubHeaderColor = const Color(0xFFBBDEFB);
 
-  // قائمة المواد الافتراضية
-  final List<String> availableSubjects = [
-    'رياضيات', 'لغة عربية', 'علوم', 'لغة إنجليزية', 'تربية إسلامية', 
-    'حاسب آلي', 'اجتماعيات', 'تربية فنية', 'تربية بدنية', 'مهارات حياتية'
-  ];
+  // إعدادات الخطوط
+  double fontScale = 1.0; // 0.8 أصغر، 1.2 أكبر
+  FontWeight fontWeight = FontWeight.normal;
 
+  // إعدادات التنبيهات
+  int alertDurationSeconds = 3; // مدة بقاء التنبيه المرئي
+  bool smartNotificationsEnabled = true; // تنبيهات الحصص المتبقية أثناء الأنشطة
+
+  final List<Subject> subjects = [];
   final List<SchoolClass> classes = [];
   final List<Teacher> teachers = [];
   final List<SlotTime> times = [];
@@ -107,7 +126,7 @@ class AppStore extends ChangeNotifier {
 
   void _loadData() async {
     final prefs = await SharedPreferences.getInstance();
-    final dataStr = prefs.getString('app_data');
+    final dataStr = prefs.getString('app_data_v3');
     
     if (dataStr != null) {
       try {
@@ -118,6 +137,17 @@ class AppStore extends ChangeNotifier {
         tableHeaderColor = Color(data['tableHeaderColor'] ?? 0xFFD6E4FF);
         tableSubHeaderColor = Color(data['tableSubHeaderColor'] ?? 0xFFBBDEFB);
         
+        fontScale = data['fontScale'] ?? 1.0;
+        alertDurationSeconds = data['alertDurationSeconds'] ?? 3;
+        smartNotificationsEnabled = data['smartNotificationsEnabled'] ?? true;
+        
+        subjects.clear();
+        if (data['subjects'] != null) {
+          for (var s in data['subjects']) {
+            subjects.add(Subject(s['id'], s['name']));
+          }
+        }
+        
         classes.clear();
         for (var c in data['classes']) {
           classes.add(SchoolClass(c['id'], c['name'], c['level']));
@@ -126,9 +156,7 @@ class AppStore extends ChangeNotifier {
         teachers.clear();
         for (var t in data['teachers']) {
           List<String> subs = [];
-          if (t['subjects'] != null) {
-            subs = List<String>.from(t['subjects']);
-          }
+          if (t['subjects'] != null) subs = List<String>.from(t['subjects']);
           teachers.add(Teacher(t['id'], t['name'], subjects: subs));
         }
         
@@ -139,12 +167,32 @@ class AppStore extends ChangeNotifier {
             subject: l['subject'], teacherId: l['teacherId']
           );
         }
+        
+        activities.clear();
+        if (data['activities'] != null) {
+          for (var a in data['activities']) {
+            activities[a['id']] = ActivitySlot(
+              day: a['day'], keyName: a['keyName'], title: a['title'],
+              start: TimeOfDay(hour: a['startH'], minute: a['startM']),
+              end: TimeOfDay(hour: a['endH'], minute: a['endM']),
+            );
+          }
+        }
       } catch (e) {
         _seed(); 
       }
     } else {
       _seed(); 
     }
+    
+    if (subjects.isEmpty) {
+      subjects.addAll([
+        Subject('s1', 'رياضيات'), Subject('s2', 'لغة عربية'), 
+        Subject('s3', 'علوم'), Subject('s4', 'لغة إنجليزية'),
+        Subject('s5', 'تربية إسلامية')
+      ]);
+    }
+    
     _setupTimes();
     _setupActivities();
     notifyListeners();
@@ -158,14 +206,23 @@ class AppStore extends ChangeNotifier {
       'primaryColor': primaryColor.value,
       'tableHeaderColor': tableHeaderColor.value,
       'tableSubHeaderColor': tableSubHeaderColor.value,
+      'fontScale': fontScale,
+      'alertDurationSeconds': alertDurationSeconds,
+      'smartNotificationsEnabled': smartNotificationsEnabled,
+      'subjects': subjects.map((s) => {'id': s.id, 'name': s.name}).toList(),
       'classes': classes.map((c) => {'id': c.id, 'name': c.name, 'level': c.level}).toList(),
       'teachers': teachers.map((t) => {'id': t.id, 'name': t.name, 'subjects': t.subjects}).toList(),
       'lessons': lessons.values.map((l) => {
         'key': l.key, 'day': l.day, 'lessonIndex': l.lessonIndex,
         'classId': l.classId, 'subject': l.subject, 'teacherId': l.teacherId
       }).toList(),
+      'activities': activities.values.map((a) => {
+        'id': a.id, 'day': a.day, 'keyName': a.keyName, 'title': a.title,
+        'startH': a.start.hour, 'startM': a.start.minute,
+        'endH': a.end.hour, 'endM': a.end.minute
+      }).toList(),
     };
-    await prefs.setString('app_data', jsonEncode(data));
+    await prefs.setString('app_data_v3', jsonEncode(data));
   }
 
   void _seed() {
@@ -179,7 +236,7 @@ class AppStore extends ChangeNotifier {
   }
 
   void _setupTimes() {
-    times.clear();
+    if (times.isNotEmpty) return;
     var cursor = const TimeOfDay(hour: 7, minute: 15);
     for (var i = 0; i < kLessonCount; i++) {
       final start = cursor;
@@ -190,11 +247,20 @@ class AppStore extends ChangeNotifier {
   }
 
   void _setupActivities() {
-    activities.clear();
+    if (activities.isNotEmpty) return;
     for (var d = 0; d < kDayCount; d++) {
-      activities[ActivitySlot.keyOf(d, kAssemblyKey)] = ActivitySlot(day: d, keyName: kAssemblyKey, title: 'الطابور');
-      activities[ActivitySlot.keyOf(d, kBreakfastKey)] = ActivitySlot(day: d, keyName: kBreakfastKey, title: 'الفطور');
-      activities[ActivitySlot.keyOf(d, kPrayerKey)] = ActivitySlot(day: d, keyName: kPrayerKey, title: 'الصلاة');
+      activities[ActivitySlot.keyOf(d, kAssemblyKey)] = ActivitySlot(
+        day: d, keyName: kAssemblyKey, title: 'الطابور',
+        start: const TimeOfDay(hour: 7, minute: 0), end: const TimeOfDay(hour: 7, minute: 15)
+      );
+      activities[ActivitySlot.keyOf(d, kBreakfastKey)] = ActivitySlot(
+        day: d, keyName: kBreakfastKey, title: 'الفطور',
+        start: const TimeOfDay(hour: 9, minute: 30), end: const TimeOfDay(hour: 9, minute: 50)
+      );
+      activities[ActivitySlot.keyOf(d, kPrayerKey)] = ActivitySlot(
+        day: d, keyName: kPrayerKey, title: 'الصلاة',
+        start: const TimeOfDay(hour: 12, minute: 0), end: const TimeOfDay(hour: 12, minute: 15)
+      );
     }
   }
 
@@ -221,7 +287,13 @@ class AppStore extends ChangeNotifier {
     saveData(); notifyListeners(); 
   }
 
-  void setActivity(int day, String keyName, String title) { activities[ActivitySlot.keyOf(day, keyName)]!.title = title; saveData(); notifyListeners(); }
+  void setActivity(int day, String keyName, String title, TimeOfDay start, TimeOfDay end) { 
+    activities[ActivitySlot.keyOf(day, keyName)]!.title = title; 
+    activities[ActivitySlot.keyOf(day, keyName)]!.start = start; 
+    activities[ActivitySlot.keyOf(day, keyName)]!.end = end; 
+    saveData(); notifyListeners(); 
+  }
+
   void setSlotTime(int index, {TimeOfDay? start, TimeOfDay? end}) {
     if (start != null) times[index].start = start;
     if (end != null) times[index].end = end;
@@ -241,15 +313,28 @@ class AppStore extends ChangeNotifier {
     c.name = name; c.level = level; saveData(); notifyListeners();
   }
   
-  void addTeacher(String name, List<String> subjects) { 
-    teachers.add(Teacher(DateTime.now().millisecondsSinceEpoch.toString(), name, subjects: subjects)); 
+  void addTeacher(String name, List<String> teacherSubjects) { 
+    teachers.add(Teacher(DateTime.now().millisecondsSinceEpoch.toString(), name, subjects: teacherSubjects)); 
     saveData(); notifyListeners(); 
   }
   void removeTeacher(String id) { teachers.removeWhere((t) => t.id == id); saveData(); notifyListeners(); }
   
+  // إدارة المواد
+  void addSubject(String name) {
+    subjects.add(Subject(DateTime.now().millisecondsSinceEpoch.toString(), name));
+    saveData(); notifyListeners();
+  }
+  void removeSubject(String id) {
+    subjects.removeWhere((s) => s.id == id);
+    saveData(); notifyListeners();
+  }
+  void updateSubject(String id, String name) {
+    final s = subjects.firstWhere((x) => x.id == id);
+    s.name = name; saveData(); notifyListeners();
+  }
+
   void setSchoolInfo(String name, String year) { schoolName = name; academicYear = year; saveData(); notifyListeners(); }
   
-  // تحديث الألوان والثيمات
   void setThemeColors(Color primary, Color header, Color subHeader) {
     primaryColor = primary;
     tableHeaderColor = header;
@@ -258,7 +343,20 @@ class AppStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  // جلب فصول مرحلة معينة
+  void setFontSettings(double scale, FontWeight weight) {
+    fontScale = scale;
+    fontWeight = weight;
+    saveData();
+    notifyListeners();
+  }
+
+  void setAlertSettings(int durationSeconds, bool smartEnabled) {
+    alertDurationSeconds = durationSeconds;
+    smartNotificationsEnabled = smartEnabled;
+    saveData();
+    notifyListeners();
+  }
+
   List<SchoolClass> getClassesByLevel(String level) {
     return classes.where((c) => c.level == level).toList();
   }
