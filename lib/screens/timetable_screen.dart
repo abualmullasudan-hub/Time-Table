@@ -48,8 +48,8 @@ class TimetableScreen extends StatefulWidget {
 class _TimetableScreenState extends State<TimetableScreen> {
   String? _selectedId;
   Timer? _timer;
-  // تم إزالة كلمة final من هنا لتجنب التحذير
-  bool _showBanner = true; 
+  // تم جعلها final لحل تحذير المترجم
+  final bool _showBanner = true; 
 
   bool get _teacherMode => widget.teacherMode;
 
@@ -57,7 +57,6 @@ class _TimetableScreenState extends State<TimetableScreen> {
   void initState() {
     super.initState();
     
-    // إجبار الشاشة على الوضع الأفقي وملء الشاشة
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.landscapeLeft,
@@ -68,7 +67,6 @@ class _TimetableScreenState extends State<TimetableScreen> {
       if (mounted) setState(() {});
     });
     
-    // إذا كان معلم، نختار أول معلم افتراضياً. إذا كان فصلاً، نطلب الاختيار.
     if (_teacherMode) {
       if (AppStore.instance.teachers.isNotEmpty) {
         _selectedId = AppStore.instance.teachers.first.id;
@@ -80,7 +78,6 @@ class _TimetableScreenState extends State<TimetableScreen> {
 
   @override
   void dispose() {
-    // إعادة الشاشة للوضع الطبيعي عند الخروج
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
@@ -117,7 +114,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
                   DropdownButtonFormField<String>(
                     decoration: const InputDecoration(labelText: 'المرحلة الدراسية'),
                     items: ['ابتدائي', 'متوسط', 'ثانوي']
-                        .map((e) => DropdownMenuItem<String>(value: e, child: Text(e))) // تم إضافة <String>
+                        .map((e) => DropdownMenuItem<String>(value: e, child: Text(e)))
                         .toList(),
                     onChanged: (v) => setDialogState(() { selectedLevel = v; selectedClassId = null; }),
                   ),
@@ -126,7 +123,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
                     DropdownButtonFormField<String>(
                       decoration: const InputDecoration(labelText: 'الفصل'),
                       items: classes
-                          .map((c) => DropdownMenuItem<String>(value: c.id, child: Text(c.name))) // تم إضافة <String>
+                          .map((c) => DropdownMenuItem<String>(value: c.id, child: Text(c.name)))
                           .toList(),
                       onChanged: (v) => setDialogState(() => selectedClassId = v),
                     ),
@@ -171,7 +168,6 @@ class _TimetableScreenState extends State<TimetableScreen> {
 
     final rows = <TableRow>[];
     
-    // صف العناوين
     rows.add(TableRow(
       decoration: const BoxDecoration(color: Color(0xFFD6E4FF)),
       children: cols.map((c) => SizedBox(height: 38, child: Center(child: Text(c.topLabel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))))).toList(),
@@ -181,7 +177,6 @@ class _TimetableScreenState extends State<TimetableScreen> {
       children: cols.map((c) => SizedBox(height: 38, child: Center(child: Text(c.bottomLabel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))))).toList(),
     ));
 
-    // صفوف الأيام
     for (var d = 0; d < kDayCount; d++) {
       rows.add(TableRow(
         children: cols.map((c) {
