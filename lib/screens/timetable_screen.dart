@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../data.dart';
 import '../widgets/lesson_box.dart';
 import '../widgets/lesson_dialog.dart';
+import '../utils/pdf_generator.dart'; // استدعاء ملف الـ PDF
 
 class TimetableScreen extends StatefulWidget {
   final bool teacherMode;
@@ -74,7 +75,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
           ),
           Expanded(
             child: classes.isEmpty
-                ? const Center(child: Text('لا توجد فصول مضافة في هذه المرحلة'))
+                ? const Center(child: Text('لا توجد فصول'))
                 : GridView.builder(
                     padding: const EdgeInsets.all(16),
                     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -115,7 +116,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
   }
 
   Widget _buildTable() {
-    if (_selectedId == null) return const Center(child: Text('لم يتم اختيار فصل أو معلم'));
+    if (_selectedId == null) return const Center(child: Text('اختر معلم/فصل'));
     final s = AppStore.instance;
     
     return Table(
@@ -147,7 +148,8 @@ class _TimetableScreenState extends State<TimetableScreen> {
           children: [
             const SizedBox(height: 38),
             const SizedBox(height: 38),
-            ...s.times.map((t) => SizedBox(height: 38, child: Center(child: Text(t.label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold))))).toList(),
+            // تم إزالة toList() من هنا لحل خطأ البناء السابق
+            ...s.times.map((t) => SizedBox(height: 38, child: Center(child: Text(t.label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold))))), 
             const SizedBox(height: 38),
             const SizedBox(height: 38),
             const SizedBox(height: 38),
@@ -215,6 +217,16 @@ class _TimetableScreenState extends State<TimetableScreen> {
         backgroundColor: s.primaryColor, 
         foregroundColor: Colors.white,
         actions: [
+          // زر تصدير PDF الجديد
+          IconButton(
+            icon: const Icon(Icons.picture_as_pdf),
+            tooltip: 'تصدير كملف PDF',
+            onPressed: () {
+              if (_selectedId != null) {
+                PdfGenerator.exportTimetable(s: s, isTeacher: _teacherMode, targetId: _selectedId!);
+              }
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.close), 
             onPressed: () {
