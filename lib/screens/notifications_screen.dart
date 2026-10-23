@@ -10,10 +10,9 @@ class NotificationsScreen extends StatefulWidget {
 }
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
-  // إعدادات التنبيهات
   bool _soundEnabled = true;
   bool _visualEnabled = true;
-  String _visualStyle = 'بطاقة عائمة'; // شريط / بطاقة عائمة / نافذة منبثقة
+  String _visualStyle = 'بطاقة عائمة'; 
   bool _alertBefore = true;
   bool _alertAfter = false;
 
@@ -25,17 +24,20 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   void _testVisualAlert() {
     if (!_visualEnabled) return;
     
+    // حفظ المتغير قبل التأخير الزمني لتجنب الخطأ
+    final messenger = ScaffoldMessenger.of(context);
+
     if (_visualStyle == 'شريط') {
-      ScaffoldMessenger.of(context).showMaterialBanner(
+      messenger.showMaterialBanner(
         MaterialBanner(
           content: const Text('تنبيه تجريبي: الحصة القادمة بعد 3 دقائق', style: TextStyle(fontWeight: FontWeight.bold)),
           leading: const Icon(Icons.notifications, color: Colors.orange),
-          actions: [TextButton(onPressed: () => ScaffoldMessenger.of(context).hideCurrentMaterialBanner(), child: const Text('إغلاق'))],
+          actions: [TextButton(onPressed: () => messenger.hideCurrentMaterialBanner(), child: const Text('إغلاق'))],
         ),
       );
-      Future.delayed(const Duration(seconds: 3), () => ScaffoldMessenger.of(context).hideCurrentMaterialBanner());
+      Future.delayed(const Duration(seconds: 3), () => messenger.hideCurrentMaterialBanner());
     } else if (_visualStyle == 'بطاقة عائمة') {
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(
           content: const Row(children: [Icon(Icons.notifications, color: Colors.white), SizedBox(width: 8), Text('تنبيه تجريبي: الحصة القادمة بعد 3 دقائق')]),
           backgroundColor: Colors.indigo,
@@ -62,7 +64,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final s = AppStore.instance;
     final today = todaySchoolIndex();
     
-    // جلب حصص اليوم وترتيبها
     final todayLessons = s.lessons.values
         .where((l) => l.day == today)
         .toList()
@@ -84,7 +85,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(12),
         children: [
-          // إعدادات التنبيهات
           Card(
             elevation: 2,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -141,7 +141,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           const Text('جدول حصص اليوم', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
 
-          // قائمة الحصص
           if (today < 0)
             const Padding(
               padding: EdgeInsets.all(24.0),
