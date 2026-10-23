@@ -4,6 +4,7 @@ import 'lessons_entry_screen.dart';
 import 'activities_screen.dart';
 import 'times_screen.dart';
 import 'basics_screen.dart';
+import 'notifications_screen.dart'; // تمت إضافة هذا السطر
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -37,6 +38,9 @@ class HomeScreen extends StatelessWidget {
                 () => _go(context, const TimesScreen())),
             _tile(context, Icons.groups, 'المعلمون والفصول', Colors.purple,
                 () => _go(context, const BasicsScreen())),
+            // الزر الجديد للتنبيهات
+            _tile(context, Icons.notifications, 'التنبيهات', Colors.redAccent,
+                () => _go(context, const NotificationsScreen())),
           ],
         ),
       ),
