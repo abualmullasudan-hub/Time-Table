@@ -19,31 +19,40 @@ jobs:
         distribution: 'zulu'
         java-version: '17'
 
+    # استخدام إصدار 3.24.5 بدلاً من 3.24.0 (يحتوي على إصلاحات مهمة)
     - name: Set up Flutter
       uses: subosito/flutter-action@v2
       with:
-        flutter-version: '3.24.0'
+        flutter-version: '3.24.5'
         channel: 'stable'
 
-    # 1. إنشاء مجلد Android أولاً
-    - name: Create Android Platform
+    - name: Create Android platform folder
       run: flutter create --project-name time_table . --platforms=android
 
-    # 2. تثبيت NDK وقبول التراخيص
-    - name: Install NDK and Accept Licenses
+    # تنظيف شامل قبل البناء
+    - name: Clean Project
+      run: flutter clean
+
+    - name: Install dependencies
+      run: flutter pub get
+
+    # إجبار المشروع على استخدام الإصدارات المتوافقة مع Flutter 3.24
+    - name: Configure Android Versions
+      run: |
+        sed -i 's/ndkVersion .*/ndkVersion "26.1.10909125"/g' android/app/build.gradle
+        sed -i 's/compileSdkVersion .*/compileSdkVersion 34/g' android/app/build.gradle
+        sed -i 's/targetSdkVersion .*/targetSdkVersion 34/g' android/app/build.gradle
+        sed -i 's|distributionUrl=.*|distributionUrl=https\\://services.gradle.org/distributions/gradle-8.7-all.zip|' android/gradle/wrapper/gradle-wrapper.properties
+
+    # تثبيت NDK المطلوب
+    - name: Install NDK
       run: |
         $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
         $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk;26.1.10909125"
 
-    # 3. إجبار المشروع على استخدام الإصدارات المتوافقة (هذه هي الخطوة الحاسمة)
-    - name: Configure Android Versions
-      run: |
-        sed -i 's/ndkVersion .*/ndkVersion "26.1.10909125"/g' android/app/build.gradle
-        sed -i 's/compileSdkVersion .*/compileSdkVersion 35/g' android/app/build.gradle
-        sed -i 's/targetSdkVersion .*/targetSdkVersion 35/g' android/app/build.gradle
-
-    - name: Install dependencies
-      run: flutter pub get
+    # فحص الكود أولاً لاكتشاف أي أخطاء في ملفات التطبيق
+    - name: Analyze Code
+      run: flutter analyze
 
     - name: Build APK
       run: flutter build apk --release
