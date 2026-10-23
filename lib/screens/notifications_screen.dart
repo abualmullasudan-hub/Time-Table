@@ -12,6 +12,8 @@ class NotificationsScreen extends StatefulWidget {
 class _NotificationsScreenState extends State<NotificationsScreen> {
   bool _soundEnabled = true;
   bool _visualEnabled = true;
+  
+  // الخيارات الأربعة المطلوبة
   String _visualStyle = 'بطاقة عائمة'; 
   bool _alertBefore = true;
   bool _alertAfter = false;
@@ -24,38 +26,92 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   void _testVisualAlert() {
     if (!_visualEnabled) return;
     
-    // حفظ المتغير قبل التأخير الزمني لتجنب الخطأ
     final messenger = ScaffoldMessenger.of(context);
 
-    if (_visualStyle == 'شريط') {
+    // إغلاق أي تنبيه سابق
+    messenger.hideCurrentMaterialBanner();
+    messenger.hideCurrentSnackBar();
+
+    if (_visualStyle == 'شريط ثابت') {
       messenger.showMaterialBanner(
         MaterialBanner(
-          content: const Text('تنبيه تجريبي: الحصة القادمة بعد 3 دقائق', style: TextStyle(fontWeight: FontWeight.bold)),
+          content: const Text('تنبيه: الحصة القادمة بعد 3 دقائق', style: TextStyle(fontWeight: FontWeight.bold)),
           leading: const Icon(Icons.notifications, color: Colors.orange),
-          actions: [TextButton(onPressed: () => messenger.hideCurrentMaterialBanner(), child: const Text('إغلاق'))],
+          actions: [
+            TextButton(
+              onPressed: () => messenger.hideCurrentMaterialBanner(), 
+              child: const Text('إغلاق')
+            )
+          ],
         ),
       );
-      Future.delayed(const Duration(seconds: 3), () => messenger.hideCurrentMaterialBanner());
-    } else if (_visualStyle == 'بطاقة عائمة') {
+    } 
+    else if (_visualStyle == 'شريط متحرك') {
+      // إنشاء شريط ينسدل من أعلى الشاشة
+      OverlayState? overlayState = Overlay.of(context);
+      OverlayEntry overlayEntry = OverlayEntry(
+        builder: (context) => Positioned(
+          top: MediaQuery.of(context).padding.top + 10,
+          left: 20,
+          right: 20,
+          child: Material(
+            elevation: 6,
+            borderRadius: BorderRadius.circular(12),
+            color: Colors.amber.shade600,
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              child: const Row(
+                children: [
+                  Icon(Icons.warning_amber_rounded, color: Colors.white, size: 28),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'تنبيه متحرك: الحصة القادمة بعد 3 دقائق', 
+                      style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 16)
+                    )
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      overlayState.insert(overlayEntry);
+      // إزالة الشريط تلقائياً بعد 3 ثوانٍ
+      Future.delayed(const Duration(seconds: 3), () {
+        try { overlayEntry.remove(); } catch (_) {}
+      });
+    }
+    else if (_visualStyle == 'شريط يظهر ويختفي') {
+      messenger.showMaterialBanner(
+        MaterialBanner(
+          content: const Text('تنبيه: الحصة القادمة بعد 3 دقائق', style: TextStyle(fontWeight: FontWeight.bold)),
+          leading: const Icon(Icons.notifications, color: Colors.orange),
+          actions: [
+            TextButton(
+              onPressed: () => messenger.hideCurrentMaterialBanner(), 
+              child: const Text('إغلاق')
+            )
+          ],
+        ),
+      );
+      // يختفي تلقائياً بعد 3 ثوانٍ
+      Future.delayed(const Duration(seconds: 3), () {
+        messenger.hideCurrentMaterialBanner();
+      });
+    } 
+    else if (_visualStyle == 'بطاقة عائمة') {
       messenger.showSnackBar(
         SnackBar(
-          content: const Row(children: [Icon(Icons.notifications, color: Colors.white), SizedBox(width: 8), Text('تنبيه تجريبي: الحصة القادمة بعد 3 دقائق')]),
+          content: const Row(children: [Icon(Icons.notifications, color: Colors.white), SizedBox(width: 8), Text('تنبيه: الحصة القادمة بعد 3 دقائق')]),
           backgroundColor: Colors.indigo,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           duration: const Duration(seconds: 3),
         ),
       );
-    } else {
-      showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Row(children: [Icon(Icons.notifications_active, color: Colors.orange), SizedBox(width: 8), Text('تنبيه')]),
-          content: const Text('تنبيه تجريبي: الحصة القادمة بعد 3 دقائق'),
-          actions: [FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('حسناً'))],
-        ),
-      );
-    }
+    } 
+    
     _playSound();
   }
 
@@ -64,6 +120,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final s = AppStore.instance;
     final today = todaySchoolIndex();
     
+    // جلب حصص اليوم وترتيبها
     final todayLessons = s.lessons.values
         .where((l) => l.day == today)
         .toList()
@@ -72,7 +129,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('التنبيهات والحصص'),
-        backgroundColor: const Color(0xFF1565C0),
+        backgroundColor: s.primaryColor,
         foregroundColor: Colors.white,
         actions: [
           IconButton(
@@ -85,6 +142,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(12),
         children: [
+          // إعدادات التنبيهات
           Card(
             elevation: 2,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -100,22 +158,24 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     subtitle: const Text('تشغيل صوت عند بداية/نهاية الحصة'),
                     value: _soundEnabled,
                     onChanged: (v) => setState(() => _soundEnabled = v),
-                    secondary: const Icon(Icons.volume_up, color: Colors.blue),
+                    secondary: Icon(Icons.volume_up, color: s.primaryColor),
                   ),
                   SwitchListTile(
                     title: const Text('تنبيه مرئي'),
                     subtitle: const Text('عرض إشعار على الشاشة'),
                     value: _visualEnabled,
                     onChanged: (v) => setState(() => _visualEnabled = v),
-                    secondary: const Icon(Icons.visibility, color: Colors.blue),
+                    secondary: Icon(Icons.visibility, color: s.primaryColor),
                   ),
                   if (_visualEnabled)
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: DropdownButtonFormField<String>(
                         value: _visualStyle,
-                        decoration: const InputDecoration(labelText: 'طريقة ظهور التنبيه المرئي', isDense: true),
-                        items: ['شريط', 'بطاقة عائمة', 'نافذة منبثقة'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                        decoration: const InputDecoration(labelText: 'طريقة ظهور التنبيه المرئي', isDense: true, border: OutlineInputBorder()),
+                        items: ['شريط ثابت', 'شريط متحرك', 'شريط يظهر ويختفي', 'بطاقة عائمة']
+                            .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                            .toList(),
                         onChanged: (v) => setState(() => _visualStyle = v!),
                       ),
                     ),
@@ -141,6 +201,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           const Text('جدول حصص اليوم', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
 
+          // قائمة الحصص
           if (today < 0)
             const Padding(
               padding: EdgeInsets.all(24.0),
@@ -159,13 +220,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 margin: const EdgeInsets.only(bottom: 8),
                 child: ListTile(
                   leading: CircleAvatar(
-                    backgroundColor: Colors.blue.shade100,
-                    child: Text('${l.lessonIndex + 1}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                    backgroundColor: s.primaryColor.withOpacity(0.1),
+                    child: Text('${l.lessonIndex + 1}', style: TextStyle(fontWeight: FontWeight.bold, color: s.primaryColor)),
                   ),
                   title: Text(l.subject, style: const TextStyle(fontWeight: FontWeight.bold)),
                   subtitle: Text('${s.className(l.classId)} | ${time.label}'),
                   trailing: IconButton(
-                    icon: const Icon(Icons.volume_up, color: Colors.indigo),
+                    icon: Icon(Icons.volume_up, color: s.primaryColor),
                     onPressed: _playSound,
                   ),
                 ),
