@@ -30,10 +30,10 @@ class _BasicsScreenState extends State<BasicsScreen> {
   Widget build(BuildContext context) {
     final s = AppStore.instance;
     return DefaultTabController(
-      length: 5,
+      length: 4,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('الإعدادات والتحكم'),
+          title: const Text('الإعدادات والبيانات'),
           backgroundColor: s.primaryColor,
           foregroundColor: Colors.white,
           bottom: const TabBar(
@@ -46,7 +46,6 @@ class _BasicsScreenState extends State<BasicsScreen> {
               Tab(text: 'الفصول', icon: Icon(Icons.groups)),
               Tab(text: 'المعلمون', icon: Icon(Icons.person)),
               Tab(text: 'المواد', icon: Icon(Icons.book)),
-              Tab(text: 'الخطوط', icon: Icon(Icons.text_fields)),
             ],
           ),
         ),
@@ -138,7 +137,7 @@ class _BasicsScreenState extends State<BasicsScreen> {
                   ],
                 ),
 
-                // 4. تبويب المواد (الجديد)
+                // 4. تبويب المواد (مع الألوان)
                 ListView(
                   padding: const EdgeInsets.all(12),
                   children: [
@@ -151,7 +150,7 @@ class _BasicsScreenState extends State<BasicsScreen> {
                     const SizedBox(height: 12),
                     ...s.subjects.map((sub) => Card(
                       child: ListTile(
-                        leading: Icon(Icons.book, color: s.primaryColor),
+                        leading: CircleAvatar(backgroundColor: sub.color, radius: 12),
                         title: Text(sub.name, style: const TextStyle(fontWeight: FontWeight.bold)),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -163,64 +162,6 @@ class _BasicsScreenState extends State<BasicsScreen> {
                       ),
                     )),
                   ],
-                ),
-
-                // 5. تبويب الخطوط (الجديد)
-                SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('التحكم في حجم الخط', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 8),
-                      Slider(
-                        value: s.fontScale,
-                        min: 0.8,
-                        max: 1.5,
-                        divisions: 7,
-                        label: '${(s.fontScale * 100).toInt()}%',
-                        onChanged: (v) {
-                          s.setFontSettings(v, s.fontWeight);
-                        },
-                      ),
-                      const SizedBox(height: 20),
-                      
-                      const Text('سماكة الخط', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 8),
-                      SegmentedButton<FontWeight>(
-                        segments: const [
-                          ButtonSegment(value: FontWeight.normal, label: Text('عادي')),
-                          ButtonSegment(value: FontWeight.bold, label: Text('عريض')),
-                        ],
-                        selected: {s.fontWeight},
-                        onSelectionChanged: (Set<FontWeight> newSelection) {
-                          s.setFontSettings(s.fontScale, newSelection.first);
-                        },
-                      ),
-                      
-                      const SizedBox(height: 30),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: s.primaryColor.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: s.primaryColor.withOpacity(0.3)),
-                        ),
-                        child: Column(
-                          children: [
-                            Text('معاينة الخط', style: TextStyle(fontWeight: FontWeight.bold, color: s.primaryColor)),
-                            const SizedBox(height: 10),
-                            Text(
-                              'هذا النص يوضح حجم وسماكة الخط الذي اخترته.',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(fontSize: 16 * s.fontScale, fontWeight: s.fontWeight),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
                 ),
               ],
             );
@@ -241,7 +182,6 @@ class _BasicsScreenState extends State<BasicsScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) {
           return AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             title: Text(c == null ? 'إضافة فصل' : 'تعديل الفصل'),
             content: Column(
               mainAxisSize: MainAxisSize.min,
@@ -293,7 +233,6 @@ class _BasicsScreenState extends State<BasicsScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) {
           return AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             title: const Text('إضافة معلم جديد'),
             content: SizedBox(
               width: 400,
@@ -356,31 +295,61 @@ class _BasicsScreenState extends State<BasicsScreen> {
 
   void _showSubjectDialog(BuildContext context, {Subject? sub}) {
     final nameCtrl = TextEditingController(text: sub?.name ?? '');
+    int selectedColorValue = sub?.colorValue ?? 0xFFE53935; // اللون الأحمر الافتراضي
+
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text(sub == null ? 'إضافة مادة' : 'تعديل المادة'),
-        content: TextField(
-          controller: nameCtrl,
-          decoration: const InputDecoration(labelText: 'اسم المادة'),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
-          FilledButton(
-            onPressed: () {
-              if (nameCtrl.text.isNotEmpty) {
-                if (sub == null) {
-                  AppStore.instance.addSubject(nameCtrl.text);
-                } else {
-                  AppStore.instance.updateSubject(sub.id, nameCtrl.text);
-                }
-                Navigator.pop(ctx);
-              }
-            },
-            child: const Text('حفظ'),
-          ),
-        ],
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            title: Text(sub == null ? 'إضافة مادة' : 'تعديل المادة'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameCtrl,
+                  decoration: const InputDecoration(labelText: 'اسم المادة'),
+                ),
+                const SizedBox(height: 16),
+                const Text('اختر لون المادة:', style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8, runSpacing: 8,
+                  children: [
+                    Colors.red, Colors.green, Colors.blue, Colors.orange, 
+                    Colors.purple, Colors.teal, Colors.pink, Colors.brown
+                  ].map((color) {
+                    final isSelected = selectedColorValue == color.value;
+                    return GestureDetector(
+                      onTap: () => setDialogState(() => selectedColorValue = color.value),
+                      child: CircleAvatar(
+                        backgroundColor: color,
+                        radius: 20,
+                        child: isSelected ? const Icon(Icons.check, color: Colors.white, size: 20) : null,
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+              FilledButton(
+                onPressed: () {
+                  if (nameCtrl.text.isNotEmpty) {
+                    if (sub == null) {
+                      AppStore.instance.addSubject(nameCtrl.text, selectedColorValue);
+                    } else {
+                      AppStore.instance.updateSubject(sub.id, nameCtrl.text, selectedColorValue);
+                    }
+                    Navigator.pop(ctx);
+                  }
+                },
+                child: const Text('حفظ'),
+              ),
+            ],
+          );
+        }
       ),
     );
   }
