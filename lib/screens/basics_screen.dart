@@ -20,22 +20,31 @@ class _BasicsScreenState extends State<BasicsScreen> {
   }
 
   @override
+  void dispose() {
+    _schoolNameCtrl.dispose();
+    _yearCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final s = AppStore.instance;
     return DefaultTabController(
-      length: 3,
+      length: 4,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('الإعدادات وإدارة الفصول'),
-          backgroundColor: const Color(0xFF1565C0),
+          title: const Text('الإعدادات'),
+          backgroundColor: s.primaryColor,
           foregroundColor: Colors.white,
           bottom: const TabBar(
+            isScrollable: true,
             labelColor: Colors.white,
             unselectedLabelColor: Colors.white70,
             tabs: [
-              Tab(text: 'المدرسة'),
-              Tab(text: 'الفصول'),
-              Tab(text: 'المعلمون'),
+              Tab(text: 'المدرسة', icon: Icon(Icons.school)),
+              Tab(text: 'الفصول', icon: Icon(Icons.groups)),
+              Tab(text: 'المعلمون', icon: Icon(Icons.person)),
+              Tab(text: 'الثيمات', icon: Icon(Icons.color_lens)),
             ],
           ),
         ),
@@ -45,21 +54,33 @@ class _BasicsScreenState extends State<BasicsScreen> {
             return TabBarView(
               children: [
                 // 1. تبويب المدرسة
-                Padding(
+                SingleChildScrollView(
                   padding: const EdgeInsets.all(16),
                   child: Column(
                     children: [
-                      TextField(controller: _schoolNameCtrl, decoration: const InputDecoration(labelText: 'اسم المدرسة', border: OutlineInputBorder())),
+                      const Text('بيانات المدرسة', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: _schoolNameCtrl, 
+                        decoration: const InputDecoration(labelText: 'اسم المدرسة', border: OutlineInputBorder(), prefixIcon: Icon(Icons.school))
+                      ),
                       const SizedBox(height: 12),
-                      TextField(controller: _yearCtrl, decoration: const InputDecoration(labelText: 'العام الدراسي', border: OutlineInputBorder())),
+                      TextField(
+                        controller: _yearCtrl, 
+                        decoration: const InputDecoration(labelText: 'العام الدراسي', border: OutlineInputBorder(), prefixIcon: Icon(Icons.calendar_today))
+                      ),
                       const SizedBox(height: 20),
-                      FilledButton.icon(
-                        onPressed: () {
-                          s.setSchoolInfo(_schoolNameCtrl.text, _yearCtrl.text);
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم حفظ البيانات بنجاح')));
-                        },
-                        icon: const Icon(Icons.save),
-                        label: const Text('حفظ الإعدادات'),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                          style: FilledButton.styleFrom(backgroundColor: s.primaryColor),
+                          onPressed: () {
+                            s.setSchoolInfo(_schoolNameCtrl.text, _yearCtrl.text);
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم حفظ بيانات المدرسة بنجاح')));
+                          },
+                          icon: const Icon(Icons.save),
+                          label: const Text('حفظ البيانات'),
+                        ),
                       ),
                     ],
                   ),
@@ -70,6 +91,7 @@ class _BasicsScreenState extends State<BasicsScreen> {
                   padding: const EdgeInsets.all(12),
                   children: [
                     FilledButton.icon(
+                      style: FilledButton.styleFrom(backgroundColor: s.primaryColor),
                       onPressed: () => _showClassDialog(context),
                       icon: const Icon(Icons.add),
                       label: const Text('إضافة فصل جديد'),
@@ -77,7 +99,7 @@ class _BasicsScreenState extends State<BasicsScreen> {
                     const SizedBox(height: 12),
                     ...s.classes.map((c) => Card(
                       child: ListTile(
-                        leading: const Icon(Icons.groups, color: Colors.teal),
+                        leading: Icon(Icons.groups, color: s.primaryColor),
                         title: Text(c.name, style: const TextStyle(fontWeight: FontWeight.bold)),
                         subtitle: Text('المرحلة: ${c.level}'),
                         trailing: Row(
@@ -97,25 +119,97 @@ class _BasicsScreenState extends State<BasicsScreen> {
                   padding: const EdgeInsets.all(12),
                   children: [
                     FilledButton.icon(
-                      onPressed: () => _askName(context, 'إضافة معلم', (name) => s.addTeacher(name)),
+                      style: FilledButton.styleFrom(backgroundColor: s.primaryColor),
+                      onPressed: () => _showTeacherDialog(context),
                       icon: const Icon(Icons.add),
                       label: const Text('إضافة معلم جديد'),
                     ),
                     const SizedBox(height: 12),
                     ...s.teachers.map((t) => Card(
                       child: ListTile(
-                        leading: const Icon(Icons.person, color: Colors.indigo),
-                        title: Text(t.name),
+                        leading: Icon(Icons.person, color: s.primaryColor),
+                        title: Text(t.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        subtitle: Text('المواد: ${t.subjects.isEmpty ? "غير محددة" : t.subjects.join(", ")}'),
                         trailing: IconButton(icon: const Icon(Icons.delete, color: Colors.red), onPressed: () => s.removeTeacher(t.id)),
                       ),
                     )),
                   ],
+                ),
+
+                // 4. تبويب الثيمات والألوان
+                SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('ألوان التطبيق', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      const Divider(),
+                      _buildColorSection('اللون الأساسي', s.primaryColor, (color) {
+                        s.setThemeColors(color, s.tableHeaderColor, s.tableSubHeaderColor);
+                      }),
+                      const SizedBox(height: 20),
+                      const Text('ألوان الجدول', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      const Divider(),
+                      _buildColorSection('لون رأس الجدول', s.tableHeaderColor, (color) {
+                        s.setThemeColors(s.primaryColor, color, s.tableSubHeaderColor);
+                      }),
+                      const SizedBox(height: 12),
+                      _buildColorSection('لون السطر الثاني', s.tableSubHeaderColor, (color) {
+                        s.setThemeColors(s.primaryColor, s.tableHeaderColor, color);
+                      }),
+                    ],
+                  ),
                 ),
               ],
             );
           }
         ),
       ),
+    );
+  }
+
+  Widget _buildColorSection(String title, Color currentColor, Function(Color) onColorSelected) {
+    final colors = [
+      Colors.blue.shade800, Colors.teal.shade700, Colors.indigo.shade800, 
+      Colors.purple.shade700, Colors.green.shade700, Colors.orange.shade800,
+      Colors.red.shade700, Colors.brown.shade700, Colors.blueGrey.shade800,
+      Colors.cyan.shade700, Colors.pink.shade700, Colors.deepPurple.shade700,
+      const Color(0xFFD6E4FF), const Color(0xFFBBDEFB), const Color(0xFFFFF8E1),
+      Colors.white, Colors.grey.shade200
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: colors.map((c) {
+            final isSelected = currentColor.value == c.value;
+            return GestureDetector(
+              onTap: () => onColorSelected(c),
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: c,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: isSelected ? Colors.black : Colors.transparent,
+                    width: 3,
+                  ),
+                  boxShadow: [
+                    if (c == Colors.white) BoxShadow(color: Colors.grey.shade400, blurRadius: 2)
+                  ]
+                ),
+                child: isSelected ? Icon(Icons.check, color: c.computeLuminance() > 0.5 ? Colors.black : Colors.white, size: 20) : null,
+              ),
+            );
+          }).toList(),
+        ),
+      ],
     );
   }
 
@@ -170,26 +264,70 @@ class _BasicsScreenState extends State<BasicsScreen> {
     );
   }
 
-  // نافذة إضافة معلم
-  void _askName(BuildContext context, String title, Function(String) onSave) {
-    final ctrl = TextEditingController();
+  // نافذة إضافة معلم مع اختيار المواد
+  void _showTeacherDialog(BuildContext context) {
+    final nameCtrl = TextEditingController();
+    List<String> selectedSubjects = [];
+    final s = AppStore.instance;
+
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(title),
-        content: TextField(controller: ctrl, autofocus: true),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
-          FilledButton(
-            onPressed: () { 
-              if (ctrl.text.isNotEmpty) { 
-                onSave(ctrl.text); 
-                Navigator.pop(ctx); 
-              } 
-            },
-            child: const Text('حفظ'),
-          ),
-        ],
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            title: const Text('إضافة معلم جديد'),
+            content: SizedBox(
+              width: 400,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                    controller: nameCtrl, 
+                    decoration: const InputDecoration(labelText: 'اسم المعلم', border: OutlineInputBorder()),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text('اختر المواد التي يدرسها:', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  Container(
+                    constraints: const BoxConstraints(maxHeight: 200),
+                    child: SingleChildScrollView(
+                      child: Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: s.availableSubjects.map((sub) {
+                          final isSelected = selectedSubjects.contains(sub);
+                          return FilterChip(
+                            label: Text(sub),
+                            selected: isSelected,
+                            onSelected: (val) {
+                              setDialogState(() {
+                                if (val) selectedSubjects.add(sub);
+                                else selectedSubjects.remove(sub);
+                              });
+                            },
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+              FilledButton(
+                onPressed: () {
+                  if (nameCtrl.text.isNotEmpty) {
+                    s.addTeacher(nameCtrl.text, selectedSubjects);
+                    Navigator.pop(ctx);
+                  }
+                },
+                child: const Text('حفظ'),
+              ),
+            ],
+          );
+        }
       ),
     );
   }
