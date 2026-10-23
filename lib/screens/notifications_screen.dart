@@ -10,20 +10,13 @@ class NotificationsScreen extends StatefulWidget {
 }
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
-  bool _soundEnabled = true;
-  bool _visualEnabled = true;
   String _visualStyle = 'بطاقة عائمة';
-  bool _alertBefore = true;
-  bool _alertAfter = false;
 
   void _playSound() {
-    if (!_soundEnabled) return;
     SystemSound.play(SystemSoundType.alert);
   }
 
   void _showVisualAlert(String message) {
-    if (!_visualEnabled) return;
-
     final s = AppStore.instance;
     final duration = Duration(seconds: s.alertDurationSeconds);
     final messenger = ScaffoldMessenger.of(context);
@@ -55,7 +48,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           right: 20,
           child: Material(
             elevation: 6,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(s.uiRadius),
             color: s.primaryColor,
             child: Container(
               padding: const EdgeInsets.all(16),
@@ -109,34 +102,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           ),
           backgroundColor: s.primaryColor,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(s.uiRadius)),
           duration: duration,
         ),
       );
     }
     _playSound();
-  }
-
-  void _simulateSmartAlert() {
-    final s = AppStore.instance;
-    final today = todaySchoolIndex();
-    if (today < 0) {
-      _showVisualAlert('اليوم ليس يوم دراسي 🎉');
-      return;
-    }
-
-    final todayLessons = s.lessons.values
-        .where((l) => l.day == today)
-        .toList()
-      ..sort((a, b) => a.lessonIndex.compareTo(b.lessonIndex));
-
-    if (todayLessons.isEmpty) {
-      _showVisualAlert('لا توجد حصص مسجلة لهذا اليوم');
-    } else {
-      final nextLesson = todayLessons.first;
-      final remaining = todayLessons.length;
-      _showVisualAlert('تنبيه ذكي: متبقي $remaining حصص اليوم. الحصة القادمة: ${nextLesson.subject} (${s.className(nextLesson.classId)})');
-    }
   }
 
   @override
@@ -167,8 +138,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         children: [
           // إعدادات التنبيهات
           Card(
-            elevation: 2,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -181,92 +150,48 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       const Text('تخصيص التنبيهات', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                     ],
                   ),
-                  const Divider(height: 24),
+                  Divider(color: s.isDarkMode ? Colors.white12 : Colors.grey.shade300, height: 24),
                   
-                  SwitchListTile(
-                    title: const Text('التنبيه الصوتي'),
-                    subtitle: const Text('تشغيل نغمة النظام عند التنبيه'),
-                    value: _soundEnabled,
-                    onChanged: (v) => setState(() => _soundEnabled = v),
-                    secondary: Icon(Icons.volume_up, color: s.primaryColor),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: DropdownButtonFormField<String>(
+                      value: _visualStyle,
+                      decoration: const InputDecoration(labelText: 'شكل التنبيه المرئي', isDense: true),
+                      items: ['شريط ثابت', 'شريط متحرك', 'شريط يظهر ويختفي', 'بطاقة عائمة']
+                          .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                          .toList(),
+                      onChanged: (v) => setState(() => _visualStyle = v!),
+                    ),
                   ),
                   
-                  SwitchListTile(
-                    title: const Text('التنبيه المرئي'),
-                    subtitle: const Text('عرض إشعار على الشاشة'),
-                    value: _visualEnabled,
-                    onChanged: (v) => setState(() => _visualEnabled = v),
-                    secondary: Icon(Icons.visibility, color: s.primaryColor),
+                  const SizedBox(height: 8),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    child: Text('مدة عرض التنبيه (بالثواني)', style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
-                  
-                  if (_visualEnabled)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      child: DropdownButtonFormField<String>(
-                        value: _visualStyle,
-                        decoration: const InputDecoration(labelText: 'شكل التنبيه المرئي', isDense: true),
-                        items: ['شريط ثابت', 'شريط متحرك', 'شريط يظهر ويختفي', 'بطاقة عائمة']
-                            .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-                            .toList(),
-                        onChanged: (v) => setState(() => _visualStyle = v!),
-                      ),
-                    ),
-                  
-                  if (_visualEnabled) ...[
-                    const SizedBox(height: 8),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 16),
-                      child: Text('مدة عرض التنبيه (بالثواني)', style: TextStyle(fontWeight: FontWeight.bold)),
-                    ),
-                    Slider(
-                      value: s.alertDurationSeconds.toDouble(),
-                      min: 1,
-                      max: 10,
-                      divisions: 9,
-                      label: '${s.alertDurationSeconds} ثوانٍ',
-                      onChanged: (v) {
-                        s.setAlertSettings(v.round(), s.smartNotificationsEnabled);
-                      },
-                    ),
-                  ],
-
-                  const Divider(height: 24),
-                  SwitchListTile(
-                    title: const Text('تنبيه قبل الحصة بـ 3 دقائق'),
-                    value: _alertBefore,
-                    onChanged: (v) => setState(() => _alertBefore = v),
-                    secondary: const Icon(Icons.timer, color: Colors.orange),
-                  ),
-                  SwitchListTile(
-                    title: const Text('تنبيه عند نهاية الحصة'),
-                    value: _alertAfter,
-                    onChanged: (v) => setState(() => _alertAfter = v),
-                    secondary: const Icon(Icons.timer_off, color: Colors.red),
+                  Slider(
+                    value: s.alertDurationSeconds.toDouble(),
+                    min: 1,
+                    max: 10,
+                    divisions: 9,
+                    label: '${s.alertDurationSeconds} ثوانٍ',
+                    activeColor: s.primaryColor,
+                    onChanged: (v) {
+                      s.setAlertSettings(v.round(), s.smartNotificationsEnabled);
+                    },
                   ),
 
-                  const Divider(height: 24),
+                  Divider(color: s.isDarkMode ? Colors.white12 : Colors.grey.shade300, height: 24),
                   
                   SwitchListTile(
                     title: const Text('التنبيهات الذكية أثناء الأنشطة'),
                     subtitle: const Text('عرض الحصص المتبقية عند الفطور أو الصلاة'),
                     value: s.smartNotificationsEnabled,
+                    activeColor: s.primaryColor,
                     onChanged: (v) {
                       s.setAlertSettings(s.alertDurationSeconds, v);
                     },
                     secondary: Icon(Icons.psychology, color: s.primaryColor),
-                  ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: _simulateSmartAlert,
-                      icon: const Icon(Icons.auto_awesome),
-                      label: const Text('تجربة التنبيه الذكي (محاكاة وقت النشاط)'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: s.primaryColor,
-                        side: BorderSide(color: s.primaryColor),
-                      ),
-                    ),
                   ),
                 ],
               ),
@@ -291,7 +216,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             ...todayLessons.map((l) {
               final time = s.times[l.lessonIndex];
               return Card(
-                elevation: 1,
                 margin: const EdgeInsets.only(bottom: 8),
                 child: ListTile(
                   leading: CircleAvatar(
