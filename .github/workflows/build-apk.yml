@@ -30,16 +30,10 @@ jobs:
         flutter create --project-name time_table . --platforms=android
         rm -f test/widget_test.dart
 
-    # توليد الأيقونة تلقائياً
-    - name: Generate Icon Image
-      run: |
-        sudo apt-get install -y imagemagick
-        mkdir -p assets
-        convert -size 1024x1024 xc:"#1565C0" -fill white -draw "roundrectangle 150,200 874,874 50,50" -fill "#1565C0" -draw "rectangle 150,200 874,350" -fill white -pointsize 400 -gravity center -annotate +0+100 "8" assets/icon.png
-
     - name: Install dependencies
       run: flutter pub get
 
+    # هذه الخطوة ستأخذ الأيقونة التي رفعتها أنت وتضعها للتطبيق
     - name: Generate App Icons
       run: dart run flutter_launcher_icons
 
