@@ -48,8 +48,12 @@ class TimetableScreen extends StatefulWidget {
 class _TimetableScreenState extends State<TimetableScreen> {
   bool _isViewingTable = false;
   String? _selectedId;
-  String _currentLevel = 'ابتدائي'; // للمرحلة الدراسية في وضع الفصول
+  String _currentLevel = 'ابتدائي'; 
   Timer? _timer;
+  
+  // متغيرات التنبيه الذكي
+  String? _smartAlertMessage;
+  bool _showSmartAlert = true;
 
   bool get _teacherMode => widget.teacherMode;
 
@@ -61,14 +65,18 @@ class _TimetableScreenState extends State<TimetableScreen> {
         _selectedId = AppStore.instance.teachers.first.id;
       }
       _isViewingTable = true;
-      _setOrientation(true); // المعلم يفتح الجدول مباشرة بالوضع الأفقي
+      _setOrientation(true); 
     } else {
-      _setOrientation(false); // الفصول تفتح قائمة الاختيار بالوضع الرأسي
+      _setOrientation(false); 
     }
 
-    _timer = Timer.periodic(const Duration(seconds: 20), (_) {
-      if (mounted && _isViewingTable) setState(() {});
+    // تحديث التنبيهات كل 30 ثانية
+    _timer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (mounted && _isViewingTable) _checkSmartAlerts();
     });
+    
+    // فحص أولي
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkSmartAlerts());
   }
 
   @override
@@ -98,7 +106,64 @@ class _TimetableScreenState extends State<TimetableScreen> {
     }
   }
 
-  // --- واجهة اختيار الفصول (الوضع الرأسي) ---
+  // المنطق الذكي لفحص الأنشطة وإظهار التنبيه
+  void _checkSmartAlerts() {
+    final s = AppStore.instance;
+    if (!s.smartNotificationsEnabled || !_isViewingTable || _selectedId == null) {
+      if (_smartAlertMessage != null) setState(() => _smartAlertMessage = null);
+      return;
+    }
+
+    final today = todaySchoolIndex();
+    if (today < 0) return;
+
+    final now = TimeOfDay.now();
+    final nowMin = now.hour * 60 + now.minute;
+
+    // فحص ما إذا كنا في وقت نشاط
+    String? activeActivity;
+    for (var key in [kAssemblyKey, kBreakfastKey, kPrayerKey]) {
+      final act = s.activityAt(today, key);
+      final startMin = act.start.hour * 60 + act.start.minute;
+      final endMin = act.end.hour * 60 + act.end.minute;
+      
+      if (nowMin >= startMin && nowMin <= endMin) {
+        activeActivity = act.title;
+        break;
+      }
+    }
+
+    if (activeActivity != null) {
+      // جلب الحصص المتبقية
+      final remaining = <Lesson>[];
+      for (final l in s.lessons.values) {
+        if (l.day != today) continue;
+        if (_teacherMode ? l.teacherId != _selectedId : l.classId != _selectedId) continue;
+        
+        final lessonEnd = s.times[l.lessonIndex].endMinutes;
+        if (lessonEnd > nowMin) {
+          remaining.add(l);
+        }
+      }
+      remaining.sort((a, b) => a.lessonIndex.compareTo(b.lessonIndex));
+
+      if (remaining.isNotEmpty) {
+        final next = remaining.first;
+        setState(() {
+          _smartAlertMessage = 'أنت الآن في وقت ($activeActivity). متبقي ${remaining.length} حصص اليوم. الحصة القادمة: ${next.subject} (${timeLabel(s.times[next.lessonIndex].start)})';
+          _showSmartAlert = true;
+        });
+        return;
+      }
+    }
+
+    // إذا لم نكن في نشاط أو لا توجد حصص متبقية
+    if (_smartAlertMessage != null) {
+      setState(() => _smartAlertMessage = null);
+    }
+  }
+
+  // --- واجهة اختيار الفصول ---
   Widget _buildClassSelection() {
     final s = AppStore.instance;
     final classes = s.getClassesByLevel(_currentLevel);
@@ -113,14 +178,14 @@ class _TimetableScreenState extends State<TimetableScreen> {
         children: [
           Container(
             padding: const EdgeInsets.all(16),
-            color: s.primaryColor.withOpacity(0.1),
+            color: s.primaryColor.withOpacity(0.05),
             child: DropdownButtonFormField<String>(
               value: _currentLevel,
               decoration: const InputDecoration(
                 labelText: 'اختر المرحلة الدراسية',
                 filled: true,
                 fillColor: Colors.white,
-                border: OutlineInputBorder(),
+                isDense: true,
               ),
               items: ['ابتدائي', 'متوسط', 'ثانوي']
                   .map((e) => DropdownMenuItem(value: e, child: Text(e)))
@@ -137,13 +202,13 @@ class _TimetableScreenState extends State<TimetableScreen> {
                       crossAxisCount: 2,
                       crossAxisSpacing: 12,
                       mainAxisSpacing: 12,
-                      childAspectRatio: 1.5,
+                      childAspectRatio: 1.3,
                     ),
                     itemCount: classes.length,
                     itemBuilder: (context, index) {
                       final c = classes[index];
                       return Card(
-                        elevation: 3,
+                        elevation: 2,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                         child: InkWell(
                           borderRadius: BorderRadius.circular(16),
@@ -152,6 +217,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
                               _selectedId = c.id;
                               _isViewingTable = true;
                               _setOrientation(true);
+                              _checkSmartAlerts();
                             });
                           },
                           child: Column(
@@ -159,14 +225,9 @@ class _TimetableScreenState extends State<TimetableScreen> {
                             children: [
                               Icon(Icons.grid_view_rounded, size: 40, color: s.primaryColor),
                               const SizedBox(height: 8),
-                              Text(
-                                c.name,
-                                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                              ),
-                              Text(
-                                'اضغط لعرض الجدول',
-                                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                              ),
+                              Text(c.name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                              const SizedBox(height: 4),
+                              Text('اضغط للعرض', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
                             ],
                           ),
                         ),
@@ -179,7 +240,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
     );
   }
 
-  // --- واجهة الجدول (الوضع الأفقي) ---
+  // --- واجهة الجدول ---
   List<_Col> _columns() {
     final cols = <_Col>[_Col.day(), _Col.activity(kAssemblyKey)];
     for (var i = 0; i < 4; i++) { cols.add(_Col.lesson(i)); }
@@ -200,14 +261,14 @@ class _TimetableScreenState extends State<TimetableScreen> {
 
     final rows = <TableRow>[];
     
-    // رأس الجدول (ألوان الثيم)
+    // رأس الجدول
     rows.add(TableRow(
       decoration: BoxDecoration(color: s.tableHeaderColor),
-      children: cols.map((c) => SizedBox(height: 38, child: Center(child: Text(c.topLabel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))))).toList(),
+      children: cols.map((c) => SizedBox(height: 38, child: Center(child: Text(c.topLabel, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12 * s.fontScale))))).toList(),
     ));
     rows.add(TableRow(
       decoration: BoxDecoration(color: s.tableSubHeaderColor),
-      children: cols.map((c) => SizedBox(height: 38, child: Center(child: Text(c.bottomLabel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))))).toList(),
+      children: cols.map((c) => SizedBox(height: 38, child: Center(child: Text(c.bottomLabel, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12 * s.fontScale))))).toList(),
     ));
 
     // صفوف الأيام
@@ -219,13 +280,22 @@ class _TimetableScreenState extends State<TimetableScreen> {
               return Container(
                 height: 66, alignment: Alignment.center, 
                 color: s.primaryColor.withOpacity(0.1), 
-                child: Text(kDayNames[d], style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: s.primaryColor))
+                child: Text(kDayNames[d], style: TextStyle(fontWeight: s.fontWeight, fontSize: 13 * s.fontScale, color: s.primaryColor))
               );
             case _ColType.activity:
+              final act = s.activityAt(d, c.activityKey);
               return Container(
                 height: 66, alignment: Alignment.center, 
-                color: s.primaryColor.withOpacity(0.05), 
-                child: Text(s.activityAt(d, c.activityKey).title, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: s.primaryColor))
+                color: Colors.amber.shade50, 
+                padding: const EdgeInsets.symmetric(horizontal: 2),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(act.title, style: TextStyle(fontSize: 11 * s.fontScale, fontWeight: FontWeight.w600, color: Colors.brown.shade800)),
+                    const SizedBox(height: 2),
+                    Text(act.timeLabelStr, style: TextStyle(fontSize: 8 * s.fontScale, color: Colors.brown.shade400)),
+                  ],
+                )
               );
             case _ColType.lesson:
               final l = _teacherMode ? s.lessonForTeacher(d, c.lessonIndex, _selectedId!) : s.lessonAt(d, c.lessonIndex, _selectedId!);
@@ -273,6 +343,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
                 setState(() {
                   _isViewingTable = false;
                   _selectedId = null;
+                  _smartAlertMessage = null;
                   _setOrientation(false);
                 });
               },
@@ -287,18 +358,45 @@ class _TimetableScreenState extends State<TimetableScreen> {
       ),
       body: Column(
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 6),
-            color: s.primaryColor.withOpacity(0.1),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.zoom_in, color: s.primaryColor, size: 18),
-                const SizedBox(width: 8),
-                Text('استخدم إصبعيك للتكبير والتصغير والتحريك', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: s.primaryColor)),
-              ],
+          // شريط التنبيه الذكي أثناء الأنشطة
+          if (_smartAlertMessage != null && _showSmartAlert)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              color: Colors.amber.shade700,
+              child: Row(
+                children: [
+                  const Icon(Icons.lightbulb, color: Colors.white, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _smartAlertMessage!,
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12 * s.fontScale),
+                    ),
+                  ),
+                  IconButton(
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    icon: const Icon(Icons.close, color: Colors.white, size: 18),
+                    onPressed: () => setState(() => _showSmartAlert = false),
+                  )
+                ],
+              ),
             ),
-          ),
+          if (_smartAlertMessage == null || !_showSmartAlert)
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              color: s.primaryColor.withOpacity(0.05),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.zoom_in, color: s.primaryColor.withOpacity(0.6), size: 16),
+                  const SizedBox(width: 6),
+                  Text('استخدم إصبعيك للتكبير والتصغير', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10 * s.fontScale, color: s.primaryColor.withOpacity(0.6))),
+                ],
+              ),
+            ),
+          
           Expanded(
             child: InteractiveViewer(
               constrained: false,
@@ -315,9 +413,6 @@ class _TimetableScreenState extends State<TimetableScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // إذا كنا في وضع المعلم، نعرض الجدول مباشرة. 
-    // إذا كنا في وضع الفصل واخترنا فصلاً، نعرض الجدول.
-    // إذا لم نكن كذلك، نعرض قائمة الفصول.
     if (_teacherMode || _isViewingTable) {
       return _buildTimetableView();
     } else {
